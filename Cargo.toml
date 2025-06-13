@@ -1,0 +1,11 @@
+[package]
+name = "aethernet"
+description = "An IPC library based on Redis"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/studio3e8/aethernet"
+readme = "README.md"
+keywords = ["IPC", "redis"]
+
+[dependencies]
