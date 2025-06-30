@@ -1,8 +1,8 @@
 # TODO
 
 Prior to v1.0 this library is in early development flux, and SemVer is not guaranteed and breaking
-changes wil happen. As this list is widdled down and things mature, these should get ported into
-GitHub issues.
+changes wil happen. As this list is shrinks and things mature, these should get ported into GitHub
+issues.
 
 * Get explicit about supported types
   * Document the types in the protocol docs
@@ -40,6 +40,9 @@ GitHub issues.
   * Support other async runtime envs than tokio? Right now that'd just be exposing the async handler
     function and letting the user spawn a task in their runtime and calling it I think. Could still
     have a feature to provide convenience functions for Tokio.
+  * Look into async/parallel dispatch of RPC handlers to allow for handling of multiple concurrent
+    RPC request, long lived requests, and out-of-order/pipelined responses.
+* Expose the top level namespace (currently `aethernet`) as an option the user can override.
 * Add CI w/ checks (clippy, udep, etc.) and build. Add automation for releases as well.
 * Keep the examples up to date along the way and clean them up to demonstrate usage and features of
   the library. Add more comments along the way to help people understand usage.

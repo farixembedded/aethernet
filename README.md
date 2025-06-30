@@ -22,7 +22,7 @@ TODO: should focus more on Rust style docs in the code.
 Aethernet was implemented after looking for a for an existing IPC solution for our embedded Linux
 microservice architecture. Several options were considered (ZBus/DBus, Varlink, Cap'n Proto, etc.),
 but each one fell short of the design goals outlined above. Ultimately this library was built. It is
-not intended to replace any other existing IPC systems, but may be useful to other with similar
+not intended to replace any other existing IPC systems, but may be useful to others with similar
 design goals in an IPC system.
 
 ## Design Goals
@@ -68,7 +68,7 @@ Namespaces:
 
 At the core of the wire format is the notion of an Aethernet message. A message can be a request's
 arguments, the response values, or the content of a Pubsub update. Messages are structs with fields
-where the name is a string of the field, and teh value is one of the above valid types described.
+where the name is a string of the field, and the value is one of the above valid types described.
 
 TODO: Get explicit about how the field names and topic/method names get coerced (i.e. to Pascal
 case) in different places from the ICD.
@@ -95,12 +95,12 @@ case) in different places from the ICD.
 
 A quick note about 64 bit integer types and json serialization is needed. Right now they are emitted
 by `serde_json` as number literals which is not compatible with Javascript, but not strictly
-incompatible with json itself. For Rust <-> communication, serde_json will handle 64-bit integers
-with no loss of precision. Other languages that might be expanded to include Python and C++.
-Python's json (de)serialization and built-in integer type can handle arbitrarily large integers. For
-C++. nlohmann::json, a nice header only lib, will parse all ints to 64 bit out of the box. The plan
-for now is to stick with this, but in the future 64-bit and larger ints could be encoded as strings
-for maximal compatibility.
+incompatible with json itself. For Rust <-> Rust communication, serde_json will handle 64-bit
+integers with no loss of precision. Other languages that might be expanded to include Python and
+C++. Python's json (de)serialization and built-in integer type can handle arbitrarily large
+integers. For C++ using nlohmann::json, a nice header only lib, will parse all ints to 64 bit out of
+the box. The plan for now is to stick with this, but in the future 64-bit and larger ints could be
+encoded as strings for maximal compatibility.
 
 ### Req/Rep RPC
 
