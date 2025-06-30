@@ -1,0 +1,23 @@
+[package]
+name = "aethernet"
+license.workspace = true
+version.workspace = true
+edition = "2024"
+
+[dependencies]
+aethernet-macros = { version = "=0.2.0", path = "../aethernet-macros" }
+tokio = { workspace = true}
+redis = { workspace = true }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+trait-variant = { workspace = true }
+log = { workspace = true }
+
+[dev-dependencies]
+# for examples
+rand = "0.9.1"
+futures = "0.3.31"
+# Full tokio runtime for the examples
+tokio = { workspace = true, features = ["full"]}

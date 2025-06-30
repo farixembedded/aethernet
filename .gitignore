@@ -1,1 +1,4 @@
+# Rust build output
 /target
+# Don't commit Cargo.lock since we are a library
+/Cargo.lock
