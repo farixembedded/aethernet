@@ -6,6 +6,7 @@
 // Returns info with an attempt to retain original AST reference for meaningful error generation
 
 use crate::helpers;
+use crate::typing;
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -28,38 +29,38 @@ pub enum IpcType {
 /// Top level info about the IPC interface
 pub struct IpcInfo {
     pub ipc_type: IpcType,
-    // handlers trait for servicing incoming RPC calls/Subscription events
+    /// handlers trait for servicing incoming RPC calls/Subscription events
     pub handlers_trait: syn::Ident,
-    // wrapper class that does static dispatch for the above trait
+    /// wrapper class that does static dispatch for the above trait
     pub handler_struct: syn::Ident,
-    // optional invoker, in the case of Pubsub, this is the publisher
-    // store as token stream so we can put a compiler error if it should be unused
+    /// optional invoker, in the case of Pubsub, this is the publisher
+    /// store as token stream so we can put a compiler error if it should be unused
     pub invoker_struct: syn::Ident,
-    // the actual endpoints within an IPC (either RPC methods, or Pubsub messages)
+    /// the actual endpoints within an IPC (either RPC methods, or Pubsub messages)
     pub endpoints: Vec<EndpointInfo>,
 }
 
-// Info about a single IPC endpoint (either one RPC method, or Pubsub messages)
+/// Info about a single IPC endpoint (either one RPC method, or Pubsub messages)
 pub struct EndpointInfo {
-    // The actual name used for methods and identification on the wire
+    /// The actual name used for methods and identification on the wire
     pub endpoint_name: syn::Ident,
-    // the struct that holds meta information for the internal lib to handle dispatch
+    /// the struct that holds meta information for the internal lib to handle dispatch
     pub endpoint_struct: syn::Ident,
-    // the raw args (either RPC method args, or the fields of the Pubsub message)
-    // note, everything is raw types, not refs
-    // has a series of helpers to assembly them for use in different situations
+    /// the raw args (either RPC method args, or the fields of the Pubsub message)
+    /// note, everything is raw types, not refs
+    /// has a series of helpers to assembly them for use in different situations
     pub req_args: Vec<(syn::Pat, syn::Type)>,
-    // the response type. This is only for RPC, for Pubsub this must be the unit type
+    /// the response type. This is only for RPC, for Pubsub this must be the unit type
     pub rep_type: syn::Type,
-    // the name of the request struct that contains the same fields as the RPC method/Pubsub
-    // message. This represents the wire format for these reqs/pubs
+    /// the name of the request struct that contains the same fields as the RPC method/Pubsub
+    /// message. This represents the wire format for these reqs/pubs
     pub req_struct: syn::Ident,
-    // Same as `req_struct` but some types are held by reference so copies aren't needed
+    /// Same as `req_struct` but some types are held by reference so copies aren't needed
     pub req_ref_struct: syn::Ident,
 }
 
 impl EndpointInfo {
-    // All req args as `name`
+    /// All req args as `name`
     pub fn req_args_name_by_value(&self) -> Vec<TokenStream> {
         self.req_args
             .iter()
@@ -67,7 +68,7 @@ impl EndpointInfo {
             .collect()
     }
 
-    // All req args as `name: type`
+    /// All req args as `name: type`
     pub fn req_args_name_and_type_by_value(&self) -> Vec<TokenStream> {
         self.req_args
             .iter()
@@ -75,8 +76,8 @@ impl EndpointInfo {
             .collect()
     }
 
-    // All req args as `name: [&'a] type` where some types are passed by reference
-    // returns a tuple of the fields, and a lifetime generic to apply to a struct holding them
+    /// All req args as `name: [&'a] type` where some types are passed by reference
+    /// returns a tuple of the fields, and a lifetime generic to apply to a struct holding them
     pub fn req_args_name_and_type_by_ref_with_lifetime(&self) -> (Vec<TokenStream>, TokenStream) {
         let mut has_ref = false;
 
@@ -100,7 +101,7 @@ impl EndpointInfo {
         (fields, lifetime_annotation)
     }
 
-    // All req args as `name: [&]type` where some types are passed by reference
+    /// All req args as `name: [&]type` where some types are passed by reference
     pub fn req_args_name_and_type_by_ref(&self) -> Vec<TokenStream> {
         self.req_args
             .iter()
@@ -196,6 +197,7 @@ fn get_ipc_trait_info(ipc_trait: &syn::ItemTrait) -> Result<Vec<EndpointInfo>, s
             }
             // TODO: check arg type against an allow list of types
 
+            typing::parse_type(&typed_arg.ty)?;
             req_args.push((*typed_arg.pat.clone(), *typed_arg.ty.clone()));
         }
 

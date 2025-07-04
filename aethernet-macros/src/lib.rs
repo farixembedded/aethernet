@@ -1,15 +1,17 @@
 // Copyright 2025 Farix Embedded LLC, studio 3e8 Inc.
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 
-mod collect;
-mod generate;
-pub(crate) mod helpers;
-
 use proc_macro::TokenStream;
+
+// bring in re-exported deps from aethernet_macros_core
+use aethernet_macros_core::deps::{quote, syn};
+// bring in sub-mods of aethernet_macros_core
+use aethernet_macros_core::{collect, generate};
+
 use quote::quote;
 use syn::parse_macro_input;
 
-use crate::collect::{InterfaceInfo, IpcInfo};
+use collect::{InterfaceInfo, IpcInfo};
 use generate::{
     generate_client_code, generate_handler_code, generate_message_structs, generate_publisher_code,
 };

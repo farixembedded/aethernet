@@ -1,6 +1,8 @@
 // Copyright 2025 Farix Embedded LLC, studio 3e8 Inc.
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 
+//! New types used by Aethernet
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

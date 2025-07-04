@@ -86,7 +86,7 @@ case) in different places from the ICD.
     * Rusts built-in Result enum: `Result<T, E>`
     * Rusts nullable Option: `Option<T>`
     * Tuples: unnamed ordered compound of other types `(T1, T2, T3, ...)`
-    * Arbitrary Enums and Structs (not currently implmented)
+    * Arbitrary Enums and Structs (not currently implemented)
       * Define arbitrary enums and structs composed of the above data types
       * Only can use arbitrary compound types within the interface they are defined in so the ICD
         for any interface is self-contained without dependencies.

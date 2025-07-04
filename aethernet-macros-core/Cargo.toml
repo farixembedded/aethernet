@@ -1,0 +1,14 @@
+[package]
+name = "aethernet-macros-core"
+description = "Internal aethernet proc macro code separated out for testability"
+license.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+syn = { version = "2.0", features = ["full", "extra-traits"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+convert_case = "0.8"
