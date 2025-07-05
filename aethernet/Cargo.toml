@@ -19,5 +19,5 @@ log = { workspace = true }
 # for examples
 rand = "0.9.1"
 futures = "0.3.31"
-# Full tokio runtime for the examples
+# Full tokio runtime for the examples and tests
 tokio = { workspace = true, features = ["full"]}
