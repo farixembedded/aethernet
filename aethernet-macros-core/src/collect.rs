@@ -1,14 +1,14 @@
 // Copyright 2025 Farix Embedded LLC, studio 3e8 Inc.
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 
-// Functions related to collecting all the information need for Aethernet code generation.
-//
-// Returns info with an attempt to retain original AST reference for meaningful error generation
+//! Functions related to collecting all the information need for Aethernet code generation.
+//!
+//! Returns info with an attempt to retain original AST reference for meaningful error generation
 
-use crate::helpers;
 use crate::typing;
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
+use quote::ToTokens;
 use quote::{format_ident, quote};
 use syn::spanned::Spanned;
 
@@ -41,6 +41,7 @@ pub struct IpcInfo {
 }
 
 /// Info about a single IPC endpoint (either one RPC method, or Pubsub messages)
+#[derive(Debug)]
 pub struct EndpointInfo {
     /// The actual name used for methods and identification on the wire
     pub endpoint_name: syn::Ident,
@@ -49,7 +50,7 @@ pub struct EndpointInfo {
     /// the raw args (either RPC method args, or the fields of the Pubsub message)
     /// note, everything is raw types, not refs
     /// has a series of helpers to assembly them for use in different situations
-    pub req_args: Vec<(syn::Pat, syn::Type)>,
+    pub req_args: Vec<typing::IpcArg>,
     /// the response type. This is only for RPC, for Pubsub this must be the unit type
     pub rep_type: syn::Type,
     /// the name of the request struct that contains the same fields as the RPC method/Pubsub
@@ -64,7 +65,7 @@ impl EndpointInfo {
     pub fn req_args_name_by_value(&self) -> Vec<TokenStream> {
         self.req_args
             .iter()
-            .map(|(pat, _ty)| quote! {#pat})
+            .map(|arg| arg.arg_name_by_value())
             .collect()
     }
 
@@ -72,44 +73,36 @@ impl EndpointInfo {
     pub fn req_args_name_and_type_by_value(&self) -> Vec<TokenStream> {
         self.req_args
             .iter()
-            .map(|(pat, ty)| quote! {#pat: #ty})
+            .map(|arg| arg.arg_name_and_type_by_value())
             .collect()
     }
 
-    /// All req args as `name: [&'a] type` where some types are passed by reference
+    /// All req args as `name: type` or `name: &'a type` where some types are passed by reference
     /// returns a tuple of the fields, and a lifetime generic to apply to a struct holding them
     pub fn req_args_name_and_type_by_ref_with_lifetime(&self) -> (Vec<TokenStream>, TokenStream) {
-        let mut has_ref = false;
+        let mut lifetime_annotation = quote! {};
 
-        let fields = self
+        let fields: Vec<_> = self
             .req_args
             .iter()
-            .map(|(pat, ty)| match helpers::type_as_pass_by_ref(ty) {
-                Some(ty) => {
-                    has_ref = true;
-                    quote! {#pat: &'a #ty}
+            .map(|arg| {
+                let (field, field_lifetime_annotation) = arg.name_and_type_by_ref_with_lifetime();
+                if let Some(field_lifetime_annotation) = field_lifetime_annotation {
+                    lifetime_annotation = field_lifetime_annotation;
                 }
-                None => quote! {#pat: #ty},
+                field
             })
             .collect();
-
-        let lifetime_annotation = match has_ref {
-            true => quote! {<'a>},
-            false => quote! {},
-        };
 
         (fields, lifetime_annotation)
     }
 
-    /// All req args as `name: [&]type` where some types are passed by reference
+    /// All req args as `name: type` or `name: &type` where some types are passed by reference. Note
+    /// that type might be different in the ref case
     pub fn req_args_name_and_type_by_ref(&self) -> Vec<TokenStream> {
-        self.req_args
-            .iter()
-            .map(|(pat, ty)| match helpers::type_as_pass_by_ref(ty) {
-                Some(ty) => quote! {#pat: &#ty},
-                None => quote! {#pat: #ty},
-            })
-            .collect()
+        self.req_args.iter().map(|arg|{
+            arg.name_and_type_by_ref()
+        }).collect()
     }
 }
 
@@ -171,7 +164,7 @@ fn get_ipc_trait_info(ipc_trait: &syn::ItemTrait) -> Result<Vec<EndpointInfo>, s
         });
         let req_ref_struct = format_ident!("{}Ref", req_struct);
 
-        let mut req_args = vec![];
+        let mut req_args_aethernet = vec![];
         // validate and collect arguments
         for arg in &ipc_fn.sig.inputs {
             let typed_arg = {
@@ -195,10 +188,11 @@ fn get_ipc_trait_info(ipc_trait: &syn::ItemTrait) -> Result<Vec<EndpointInfo>, s
             if arg_is_mutable(typed_arg) {
                 return Err(syn::Error::new(arg.span(), "IPC args can not be mutable"));
             }
-            // TODO: check arg type against an allow list of types
 
-            typing::parse_type(&typed_arg.ty)?;
-            req_args.push((*typed_arg.pat.clone(), *typed_arg.ty.clone()));
+            req_args_aethernet.push(typing::IpcArg {
+                name: typed_arg.pat.to_token_stream().to_string(),
+                ty: typing::parse_type(&typed_arg.ty)?,
+            });
         }
 
         let rep_type = match &ipc_fn.sig.output {
@@ -210,7 +204,7 @@ fn get_ipc_trait_info(ipc_trait: &syn::ItemTrait) -> Result<Vec<EndpointInfo>, s
         endpoints_info.push(EndpointInfo {
             endpoint_name,
             endpoint_struct,
-            req_args,
+            req_args: req_args_aethernet,
             rep_type,
             req_struct,
             req_ref_struct,

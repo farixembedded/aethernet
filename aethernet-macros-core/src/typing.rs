@@ -3,8 +3,58 @@
 
 //! Helper for parsing and validating argument type info from the ICD
 
+use proc_macro2::TokenStream;
 use quote::ToTokens;
+use quote::{format_ident, quote};
 use syn::spanned::Spanned;
+
+#[derive(Debug)]
+pub struct IpcArg {
+    pub name: String,
+    pub ty: crate::typing::AethernetType,
+}
+
+impl IpcArg {
+    /// `name`
+    pub fn arg_name_by_value(&self) -> TokenStream {
+        format_ident!("{}", self.name).into_token_stream()
+    }
+
+    /// `name: type`
+    pub fn arg_name_and_type_by_value(&self) -> TokenStream {
+        let name = format_ident!("{}", self.name);
+        let ty = self.ty.emit_rust();
+        quote! {#name: #ty}
+    }
+
+    /// `name: type` or `name: &'a type` where some types are passed by reference
+    ///
+    /// returns a tuple of the fields, and an optional lifetime generic to apply to a struct holding
+    /// them if passed by ref
+    pub fn name_and_type_by_ref_with_lifetime(&self) -> (TokenStream, Option<TokenStream>) {
+        let name = format_ident!("{}", self.name);
+        match self.ty.emit_rust_reference() {
+            Some(ty) => (quote! {#name: &'a #ty}, Some(quote! {<'a>})),
+            None => {
+                let ty = self.ty.emit_rust();
+                (quote! {#name: #ty}, None)
+            }
+        }
+    }
+
+    /// `name: type` or `name: &type` where some types are passed by reference. Note that type might
+    /// be different in the ref case
+    pub fn name_and_type_by_ref(&self) -> TokenStream {
+        let name = format_ident!("{}", self.name);
+        match self.ty.emit_rust_reference() {
+            Some(ty) => quote! {#name: &#ty},
+            None => {
+                let ty = self.ty.emit_rust();
+                quote! {#name: #ty}
+            }
+        }
+    }
+}
 
 /// Represents all valid types in Aethernet. Can be nested types as well.
 #[derive(Debug, PartialEq)]
@@ -37,6 +87,79 @@ pub enum AethernetType {
         n: usize,
     },
     Tuple(Vec<AethernetType>),
+}
+
+impl AethernetType {
+    pub fn emit_rust(&self) -> syn::Type {
+        match self {
+            AethernetType::U8 => syn::parse_quote!(u8),
+            AethernetType::I8 => syn::parse_quote!(i8),
+            AethernetType::U16 => syn::parse_quote!(u16),
+            AethernetType::I16 => syn::parse_quote!(i16),
+            AethernetType::U32 => syn::parse_quote!(u32),
+            AethernetType::I32 => syn::parse_quote!(i32),
+            AethernetType::U64 => syn::parse_quote!(u64),
+            AethernetType::I64 => syn::parse_quote!(i64),
+            AethernetType::F32 => syn::parse_quote!(f32),
+            AethernetType::F64 => syn::parse_quote!(f64),
+            AethernetType::Bool => syn::parse_quote!(bool),
+            AethernetType::String => syn::parse_quote!(String),
+            AethernetType::Result { t, e } => {
+                let t = t.emit_rust();
+                let e = e.emit_rust();
+                syn::parse_quote!( Result<#t, #e> )
+                // format!("Result<{}, {}>", t.emit_rust(), e.emit_rust())
+            }
+            AethernetType::Option(t) => {
+                let t = t.emit_rust();
+                syn::parse_quote!( Option<#t> )
+            }
+            AethernetType::Vec(t) => {
+                let t = t.emit_rust();
+                syn::parse_quote!( Vec<#t> )
+            }
+            AethernetType::Array { t, n } => {
+                let t = t.emit_rust();
+                syn::parse_quote!( [#t; #n] )
+            }
+            AethernetType::Tuple(t) => {
+                let types = t.iter().map(|t| t.emit_rust()).collect::<Vec<_>>();
+                match types.len() {
+                    1 => {
+                        let ty = &types[0];
+                        syn::parse_quote!( (#ty,) )
+                    }
+                    _ => syn::parse_quote!( (#(#types),*) ),
+                }
+            }
+        }
+    }
+
+    /// Check if a type should be passed to call or publish functions by ref to prevent ownership/copy
+    /// issues. Returns the type to use when passing by reference (might be different than the input).
+    pub fn emit_rust_reference(&self) -> Option<syn::Type> {
+        match self {
+            AethernetType::String => {
+                // Strings are passed by ref as a str slice
+                Some(syn::parse_quote!(str))
+            }
+            AethernetType::Vec(t) => {
+                // Vecs are passed by ref as a slice
+                let t = t.emit_rust();
+                Some(syn::parse_quote!( [#t]))
+            }
+            AethernetType::Array { t, n: _ } => {
+                // Arrays are passed by ref as a slice
+                let t = t.emit_rust();
+                Some(syn::parse_quote!( [#t]))
+            }
+            AethernetType::Tuple(_) => {
+                // Tuples are passed by ref as themselves
+                Some(self.emit_rust())
+            }
+            _ => None,
+        }
+    }
 }
 
 /// Convert an AST type representation into a more manageable AethernetType
@@ -131,7 +254,10 @@ fn parse_path(path: &syn::TypePath) -> Result<AethernetType, syn::Error> {
         }
         "Result" => {
             let [t, e] = parse_bracket_inner::<2>(path)?;
-            Ok(AethernetType::Result { t: t.into(), e: e.into() })
+            Ok(AethernetType::Result {
+                t: t.into(),
+                e: e.into(),
+            })
         }
         _ => Err(syn::Error::new(path.span(), "Invalid Aethernet type")),
     }
