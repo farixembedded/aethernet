@@ -22,7 +22,9 @@ impl IpcArg {
 
     /// `name: type`
     pub fn arg_name_and_type_by_value(&self) -> TokenStream {
-        quote! {#(self.name): #(ty.ty)}
+        let name = &self.name;
+        let ty = &self.ty;
+        quote! {#name: #ty}
     }
 
     /// `name: type` or `name: &'a type` where some types are passed by reference
@@ -33,16 +35,23 @@ impl IpcArg {
         let name = &self.name;
         match self.ty.emit_rust_reference() {
             Some(ty) => (quote! {#name: &'a #ty}, Some(quote! {<'a>})),
-            None => (quote! {#name: #(self.ty)}, None),
+            None => {
+                let ty = &self.ty;
+                (quote! {#name: #ty}, None)
+            }
         }
     }
 
     /// `name: type` or `name: &type` where some types are passed by reference. Note that type might
     /// be different in the ref case
     pub fn name_and_type_by_ref(&self) -> TokenStream {
+        let name = &self.name;
         match self.ty.emit_rust_reference() {
-            Some(ty) => quote! {#(self.name): &#ty},
-            None => quote! {#(self.name): #(self.ty)},
+            Some(ty) => quote! {#name: &#ty},
+            None => {
+                let ty = &self.ty;
+                quote! {#name: #ty}
+            }
         }
     }
 }
@@ -124,7 +133,8 @@ impl AethernetType {
                 let types = t.iter().map(|t| t.to_syn_type()).collect::<Vec<_>>();
                 match types.len() {
                     1 => {
-                        syn::parse_quote!( (#(types[0]),) )
+                        let ty = &types[0];
+                        syn::parse_quote!( (#ty,) )
                     }
                     _ => syn::parse_quote!( (#(#types),*) ),
                 }

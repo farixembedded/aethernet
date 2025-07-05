@@ -46,3 +46,4 @@ issues.
 * Add CI w/ checks (clippy, udep, etc.) and build. Add automation for releases as well.
 * Keep the examples up to date along the way and clean them up to demonstrate usage and features of
   the library. Add more comments along the way to help people understand usage.
+* Add #[doc] annotation on generated structures in the proc macro
