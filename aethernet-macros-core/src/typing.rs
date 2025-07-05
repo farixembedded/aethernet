@@ -5,26 +5,24 @@
 
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use quote::{format_ident, quote};
+use quote::quote;
 use syn::spanned::Spanned;
 
 #[derive(Debug)]
 pub struct IpcArg {
-    pub name: String,
+    pub name: syn::Ident,
     pub ty: crate::typing::AethernetType,
 }
 
 impl IpcArg {
     /// `name`
     pub fn arg_name_by_value(&self) -> TokenStream {
-        format_ident!("{}", self.name).into_token_stream()
+        self.name.to_token_stream()
     }
 
     /// `name: type`
     pub fn arg_name_and_type_by_value(&self) -> TokenStream {
-        let name = format_ident!("{}", self.name);
-        let ty = self.ty.emit_rust();
-        quote! {#name: #ty}
+        quote! {#(self.name): #(ty.ty)}
     }
 
     /// `name: type` or `name: &'a type` where some types are passed by reference
@@ -32,26 +30,19 @@ impl IpcArg {
     /// returns a tuple of the fields, and an optional lifetime generic to apply to a struct holding
     /// them if passed by ref
     pub fn name_and_type_by_ref_with_lifetime(&self) -> (TokenStream, Option<TokenStream>) {
-        let name = format_ident!("{}", self.name);
+        let name = &self.name;
         match self.ty.emit_rust_reference() {
             Some(ty) => (quote! {#name: &'a #ty}, Some(quote! {<'a>})),
-            None => {
-                let ty = self.ty.emit_rust();
-                (quote! {#name: #ty}, None)
-            }
+            None => (quote! {#name: #(self.ty)}, None),
         }
     }
 
     /// `name: type` or `name: &type` where some types are passed by reference. Note that type might
     /// be different in the ref case
     pub fn name_and_type_by_ref(&self) -> TokenStream {
-        let name = format_ident!("{}", self.name);
         match self.ty.emit_rust_reference() {
-            Some(ty) => quote! {#name: &#ty},
-            None => {
-                let ty = self.ty.emit_rust();
-                quote! {#name: #ty}
-            }
+            Some(ty) => quote! {#(self.name): &#ty},
+            None => quote! {#(self.name): #(self.ty)},
         }
     }
 }
@@ -59,6 +50,8 @@ impl IpcArg {
 /// Represents all valid types in Aethernet. Can be nested types as well.
 #[derive(Debug, PartialEq)]
 pub enum AethernetType {
+    // unit type
+    Unit,
     // integers
     U8,
     I8,
@@ -89,9 +82,28 @@ pub enum AethernetType {
     Tuple(Vec<AethernetType>),
 }
 
+impl quote::ToTokens for AethernetType {
+    fn into_token_stream(self) -> TokenStream
+    where
+        Self: Sized,
+    {
+        self.to_syn_type().into_token_stream()
+    }
+
+    fn to_token_stream(&self) -> TokenStream {
+        self.to_syn_type().to_token_stream()
+    }
+
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.to_syn_type().to_tokens(tokens);
+    }
+}
+
 impl AethernetType {
-    pub fn emit_rust(&self) -> syn::Type {
+    /// get as a syn::Type. Purely syntax sugar
+    pub fn to_syn_type(&self) -> syn::Type {
         match self {
+            AethernetType::Unit => syn::parse_quote!(()),
             AethernetType::U8 => syn::parse_quote!(u8),
             AethernetType::I8 => syn::parse_quote!(i8),
             AethernetType::U16 => syn::parse_quote!(u16),
@@ -104,30 +116,15 @@ impl AethernetType {
             AethernetType::F64 => syn::parse_quote!(f64),
             AethernetType::Bool => syn::parse_quote!(bool),
             AethernetType::String => syn::parse_quote!(String),
-            AethernetType::Result { t, e } => {
-                let t = t.emit_rust();
-                let e = e.emit_rust();
-                syn::parse_quote!( Result<#t, #e> )
-                // format!("Result<{}, {}>", t.emit_rust(), e.emit_rust())
-            }
-            AethernetType::Option(t) => {
-                let t = t.emit_rust();
-                syn::parse_quote!( Option<#t> )
-            }
-            AethernetType::Vec(t) => {
-                let t = t.emit_rust();
-                syn::parse_quote!( Vec<#t> )
-            }
-            AethernetType::Array { t, n } => {
-                let t = t.emit_rust();
-                syn::parse_quote!( [#t; #n] )
-            }
+            AethernetType::Result { t, e } => syn::parse_quote!( Result<#t, #e> ),
+            AethernetType::Option(t) => syn::parse_quote!( Option<#t> ),
+            AethernetType::Vec(t) => syn::parse_quote!( Vec<#t> ),
+            AethernetType::Array { t, n } => syn::parse_quote!( [#t; #n] ),
             AethernetType::Tuple(t) => {
-                let types = t.iter().map(|t| t.emit_rust()).collect::<Vec<_>>();
+                let types = t.iter().map(|t| t.to_syn_type()).collect::<Vec<_>>();
                 match types.len() {
                     1 => {
-                        let ty = &types[0];
-                        syn::parse_quote!( (#ty,) )
+                        syn::parse_quote!( (#(types[0]),) )
                     }
                     _ => syn::parse_quote!( (#(#types),*) ),
                 }
@@ -145,17 +142,15 @@ impl AethernetType {
             }
             AethernetType::Vec(t) => {
                 // Vecs are passed by ref as a slice
-                let t = t.emit_rust();
                 Some(syn::parse_quote!( [#t]))
             }
             AethernetType::Array { t, n: _ } => {
                 // Arrays are passed by ref as a slice
-                let t = t.emit_rust();
                 Some(syn::parse_quote!( [#t]))
             }
             AethernetType::Tuple(_) => {
                 // Tuples are passed by ref as themselves
-                Some(self.emit_rust())
+                Some(self.to_syn_type())
             }
             _ => None,
         }
@@ -200,6 +195,11 @@ fn parse_array(array: &syn::TypeArray) -> Result<AethernetType, syn::Error> {
 fn parse_tuple(tuple: &syn::TypeTuple) -> Result<AethernetType, syn::Error> {
     let mut inners = vec![];
 
+    // the unit type is just a zero member tuple
+    if tuple.elems.is_empty() {
+        return Ok(AethernetType::Unit);
+    }
+
     for ty in &tuple.elems {
         inners.push(parse_type(ty)?);
     }
@@ -227,6 +227,7 @@ fn parse_path(path: &syn::TypePath) -> Result<AethernetType, syn::Error> {
     // extract basic types (confirming there are no path args)
     if path.arguments == syn::PathArguments::None {
         match path.ident.to_string().as_str() {
+            // Note: don't allow parsing of unit type
             "u8" => return Ok(AethernetType::U8),
             "i8" => return Ok(AethernetType::I8),
             "u16" => return Ok(AethernetType::U16),
@@ -301,6 +302,7 @@ mod test {
             .unwrap_or_else(|err| panic!("{input}: Couldn't parse: {err}"))
     }
 
+    #[test_case("()" => AethernetType::Unit)]
     #[test_case("u8" => AethernetType::U8)]
     #[test_case("i8" => AethernetType::I8)]
     #[test_case("u16" => AethernetType::U16)]

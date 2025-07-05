@@ -52,7 +52,7 @@ pub struct EndpointInfo {
     /// has a series of helpers to assembly them for use in different situations
     pub req_args: Vec<typing::IpcArg>,
     /// the response type. This is only for RPC, for Pubsub this must be the unit type
-    pub rep_type: syn::Type,
+    pub rep_type: typing::AethernetType,
     /// the name of the request struct that contains the same fields as the RPC method/Pubsub
     /// message. This represents the wire format for these reqs/pubs
     pub req_struct: syn::Ident,
@@ -190,15 +190,15 @@ fn get_ipc_trait_info(ipc_trait: &syn::ItemTrait) -> Result<Vec<EndpointInfo>, s
             }
 
             req_args_aethernet.push(typing::IpcArg {
-                name: typed_arg.pat.to_token_stream().to_string(),
+                name: format_ident!("{}", typed_arg.pat.to_token_stream().to_string()),
                 ty: typing::parse_type(&typed_arg.ty)?,
             });
         }
 
         let rep_type = match &ipc_fn.sig.output {
-            syn::ReturnType::Type(_, ty) => *ty.clone(),
+            syn::ReturnType::Type(_, ty) => typing::parse_type(ty)?,
             // if there is no return type, put in the unit type
-            syn::ReturnType::Default => syn::parse_str("()").unwrap(),
+            syn::ReturnType::Default => typing::AethernetType::Unit,
         };
 
         endpoints_info.push(EndpointInfo {

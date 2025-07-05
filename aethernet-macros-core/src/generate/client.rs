@@ -48,8 +48,6 @@ fn generate_pubsub_getters(pubsub_info: &IpcInfo) -> proc_macro2::TokenStream {
 
         if let [IpcArg {name, ty}] = req_args.as_slice() {
             // if the pubsub message contains only one field, then we return just that value, no struct wrapping
-            let name = format_ident!("{name}");
-            let ty = ty.emit_rust();
             calls.push(quote! {
                 pub async fn #get_method(&self) -> Result<#ty, ::aethernet::AethernetError> {
                     let msg = self.client.get::<pubsub::#endpoint_struct>().await?;
