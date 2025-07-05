@@ -6,6 +6,7 @@
 use quote::ToTokens;
 use syn::spanned::Spanned;
 
+/// Represents all valid types in Aethernet. Can be nested types as well.
 #[derive(Debug, PartialEq)]
 pub enum AethernetType {
     // integers
@@ -36,8 +37,6 @@ pub enum AethernetType {
         n: usize,
     },
     Tuple(Vec<AethernetType>),
-    // TODO: user types (custom structs/enums defined in the ICD)
-    Todo, // place holder, remove when done to expose any usage
 }
 
 /// Convert an AST type representation into a more manageable AethernetType
