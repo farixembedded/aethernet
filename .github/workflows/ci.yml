@@ -3,8 +3,9 @@ name: Aethernet - CI
 on:
   # Always build main
   push:
-    branches:
-      main
+    # TEMP: turn this back on for merge
+    # branches:
+    #   main
   # For pull requests
   pull_request:
   # Allow manually triggered runs
