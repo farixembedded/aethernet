@@ -19,6 +19,8 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
       - name: build docker conatiners
-        run: docker compose build
+        run: |
+          docker compose pull
+          docker compose build
       - name: Run build
         run: docker compose run rust
