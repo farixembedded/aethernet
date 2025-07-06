@@ -1,0 +1,6 @@
+FROM rust:1.88
+
+RUN : \
+    && rustup component add clippy \
+    && rustup component add rustfmt \
+    && :

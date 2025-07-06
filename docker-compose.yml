@@ -1,0 +1,27 @@
+services:
+  valkey:
+    image: valkey/valkey:8
+    expose:
+      - "6379"
+
+  rust:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.rust
+    working_dir: /build
+    volumes:
+      - .:/build
+    depends_on:
+      - valkey
+    environment:
+      VALKEY_URL: redis://valkey:6379
+      # to not interfere with local builds
+      CARGO_TARGET_DIR: /build/target-docker
+    command: >
+      bash -c "
+        set -euo pipefail
+        cargo fmt --check
+        cargo clippy
+        cargo build
+        cargo test
+      "

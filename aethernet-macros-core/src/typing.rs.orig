@@ -151,6 +151,20 @@ impl AethernetType {
     /// issues. Returns the type to use when passing by reference (might be different than the input).
     pub fn to_syn_type_as_reference_type(&self) -> Option<syn::Type> {
         match self {
+<<<<<<< HEAD
+            // AethernetType::Result { t, e } => {
+            //     // Result is by value, but inners are by ref if they want to be
+            //     let t_by_ref = t.to_syn_type_as_reference_type().unwrap_or(t.to_syn_type());
+            //     let e_by_ref = e.to_syn_type_as_reference_type().unwrap_or(e.to_syn_type());
+            //     Some(syn::parse_quote!( Result<#t_by_ref, #e_by_ref> ))
+            // }
+            // AethernetType::Option(t) => {
+            //     // Option is by value, but the inner is by ref it it wants to be
+            //     let t_by_ref = t.to_syn_type_as_reference_type().unwrap_or(t.to_syn_type());
+            //     Some(syn::parse_quote!( Option<#t_by_ref>  ))
+            // }
+=======
+>>>>>>> af9696b (finish porting tests)
             AethernetType::String => {
                 // Strings are passed by ref as a str slice
                 Some(syn::parse_quote!(str))
@@ -159,7 +173,7 @@ impl AethernetType {
                 // Vecs are passed by ref as a slice
                 Some(syn::parse_quote!( [#t]))
             }
-            AethernetType::Array { .. } => {
+            AethernetType::Array {..} => {
                 // Arrays are passed as themselves
                 Some(self.to_syn_type())
             }
@@ -430,7 +444,7 @@ mod test {
                 n: 4,
             }.into()
         ))] // compound nested type
-    fn test_parse_vec_passing(#[case] input: &str, #[case] expected: AethernetType) {
+    fn test_parse_vec_passing(#[case] input: &str, #[case] expected:AethernetType) {
         assert_eq!(expected, input_to_aethernet_type(input));
     }
 

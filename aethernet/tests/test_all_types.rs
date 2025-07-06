@@ -2,13 +2,14 @@
 
 //! Test all types available to Aethernet
 
+mod common;
+
 use aethernet::AethernetHandlerGuard;
+use common::valkey_con_str;
 use lazy_static::lazy_static;
 use redis::AsyncTypedCommands;
 use rstest::{fixture, rstest};
 use tokio::sync::Mutex;
-
-const CON: &str = "redis://127.0.0.1/";
 
 #[aethernet::interface]
 mod type_test_interface {
@@ -163,13 +164,14 @@ async fn ipc<'a>() -> TestIpcContext<'a> {
     let mutex = REDIS_MUTEX.lock().await;
 
     // clear redis before test
-    let client = redis::Client::open(CON).unwrap();
+    let client = redis::Client::open(valkey_con_str()).unwrap();
     let mut con = client.get_multiplexed_tokio_connection().await.unwrap();
     con.flushall().await.unwrap();
 
-    let server_guard = TypeTestInterfaceRpcServer::spawn_handler(CON, RpcHandler {}.into()).await;
-    let client = TypeTestInterfaceClient::new(CON).await;
-    let publish = TypeTestInterfacePublisher::new(CON).await;
+    let server_guard =
+        TypeTestInterfaceRpcServer::spawn_handler(&valkey_con_str(), RpcHandler {}.into()).await;
+    let client = TypeTestInterfaceClient::new(&valkey_con_str()).await;
+    let publish = TypeTestInterfacePublisher::new(&valkey_con_str()).await;
 
     TestIpcContext {
         client,
@@ -329,7 +331,6 @@ macro_rules! pubsub_test {
         }
     };
 }
-
 
 pubsub_test!(u8, 5);
 pubsub_test!(i8, 5);
