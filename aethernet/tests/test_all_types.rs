@@ -6,13 +6,12 @@ use aethernet::AethernetHandlerGuard;
 use lazy_static::lazy_static;
 use redis::AsyncTypedCommands;
 use rstest::{fixture, rstest};
-use std::ops::{Deref, DerefMut};
 use tokio::sync::Mutex;
 
 const CON: &str = "redis://127.0.0.1/";
 
 #[aethernet::interface]
-mod test_interface {
+mod type_test_interface {
     trait Rpc {
         /// Add 10 to input
         fn rpc_u8(arg: u8) -> u8;
@@ -41,8 +40,8 @@ mod test_interface {
         /// Add 10 to u8 if Result it T
         /// Append "world" to String if Result is E
         fn rpc_result(arg: Result<u8, String>) -> Result<u8, String>;
-        /// return arg + 10 if Some, None if None
-        fn rpc_option(arg: Option<u8>) -> Option<u8>;
+        /// append "world" to string, or None if input is None
+        fn rpc_option(arg: Option<String>) -> Option<String>;
         // return a vec with each element having 10 added
         fn rpc_vec(arg: Vec<u8>) -> Vec<u8>;
         /// add 10 to each value in the array
@@ -62,11 +61,17 @@ mod test_interface {
         fn pubsub_f32(arg: f32);
         fn pubsub_f64(arg: f64);
         fn pubsub_bool(arg: bool);
+        fn pubsub_string(arg: String);
+        fn pubsub_result(arg: Result<u8, String>);
+        fn pubsub_option(arg: Option<String>);
+        fn pubsub_vec(arg: Vec<u8>);
+        fn pubsub_array(arg: [u8; 4]);
+        fn pubsub_tuple(arg: (u8, String));
     }
 }
 
 struct RpcHandler {}
-impl TestInterfaceRpcHandlers for RpcHandler {
+impl TypeTestInterfaceRpcHandlers for RpcHandler {
     async fn rpc_u8(&self, arg: u8) -> u8 {
         arg + 10
     }
@@ -122,8 +127,8 @@ impl TestInterfaceRpcHandlers for RpcHandler {
         }
     }
 
-    async fn rpc_option(&self, arg: Option<u8>) -> Option<u8> {
-        arg.map(|arg| arg + 10)
+    async fn rpc_option(&self, arg: Option<String>) -> Option<String> {
+        arg.map(|arg| arg + "world")
     }
 
     async fn rpc_vec(&self, arg: Vec<u8>) -> Vec<u8> {
@@ -144,29 +149,16 @@ lazy_static! {
     static ref REDIS_MUTEX: Mutex<()> = Mutex::new(());
 }
 
-struct ClientTestContext<'a> {
-    client: TestInterfaceClient,
+struct TestIpcContext<'a> {
+    client: TypeTestInterfaceClient,
+    publish: TypeTestInterfacePublisher,
     _server_guard: AethernetHandlerGuard,
     _mutex: tokio::sync::MutexGuard<'a, ()>,
 }
 
-impl<'a> Deref for ClientTestContext<'a> {
-    type Target = TestInterfaceClient;
-    fn deref(&self) -> &Self::Target {
-        &self.client
-    }
-}
-
-impl<'a> DerefMut for ClientTestContext<'a> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.client
-    }
-}
-
-/// Fixture to get a lock on redis, start an Aethernet server, and return the client (with mutext
-/// and sever guards hidden in the struct)
+/// Fixture to get a lock on redis, start an Aethernet server along with client and publisher
 #[fixture]
-async fn client<'a>() -> ClientTestContext<'a> {
+async fn ipc<'a>() -> TestIpcContext<'a> {
     // todo: take the mutex
     let mutex = REDIS_MUTEX.lock().await;
 
@@ -175,11 +167,13 @@ async fn client<'a>() -> ClientTestContext<'a> {
     let mut con = client.get_multiplexed_tokio_connection().await.unwrap();
     con.flushall().await.unwrap();
 
-    let server_guard = TestInterfaceRpcServer::spawn_handler(CON, RpcHandler {}.into()).await;
-    let client = TestInterfaceClient::new(CON).await;
+    let server_guard = TypeTestInterfaceRpcServer::spawn_handler(CON, RpcHandler {}.into()).await;
+    let client = TypeTestInterfaceClient::new(CON).await;
+    let publish = TypeTestInterfacePublisher::new(CON).await;
 
-    ClientTestContext {
+    TestIpcContext {
         client,
+        publish,
         _server_guard: server_guard,
         _mutex: mutex,
     }
@@ -195,8 +189,8 @@ macro_rules! integer_rpc_test {
             #[rstest]
             #[tokio::test]
             #[awt]
-            async fn [< test_rpc_ $ty >]<'a>(#[future] client: ClientTestContext<'a>) {
-                assert_eq!(25, client.[<rpc_ $ty>](15).await.unwrap());
+            async fn [< test_rpc_ $ty >]<'a>(#[future] ipc: TestIpcContext<'a>) {
+                assert_eq!(25, ipc.client.[<rpc_ $ty>](15).await.unwrap());
             }
         }
     };
@@ -217,8 +211,8 @@ macro_rules! float_rpc_test {
             #[rstest]
             #[tokio::test]
             #[awt]
-            async fn [< test_rpc_ $ty >]<'a>(#[future] client: ClientTestContext<'a>) {
-                assert!(float_equal(25., client.[<rpc_ $ty>](15.).await.unwrap()));
+            async fn [< test_rpc_ $ty >]<'a>(#[future] ipc: TestIpcContext<'a>) {
+                assert!(float_equal(25., ipc.client.[<rpc_ $ty>](15.).await.unwrap()));
             }
         }
     };
@@ -230,18 +224,18 @@ float_rpc_test!(f64);
 #[rstest]
 #[tokio::test]
 #[awt]
-async fn test_rpc_bool<'a>(#[future] client: ClientTestContext<'a>) {
-    assert!(client.rpc_bool(false).await.unwrap());
+async fn test_rpc_bool<'a>(#[future] ipc: TestIpcContext<'a>) {
+    assert!(ipc.client.rpc_bool(false).await.unwrap());
 }
 
 #[rstest]
 #[tokio::test]
 #[awt]
-async fn test_rpc_string<'a>(#[future] client: ClientTestContext<'a>) {
+async fn test_rpc_string<'a>(#[future] ipc: TestIpcContext<'a>) {
     // test that it can take &str as the call arg
     assert_eq!(
         String::from("hello world"),
-        client.rpc_string("hello ").await.unwrap()
+        ipc.client.rpc_string("hello ").await.unwrap()
     );
 }
 
@@ -253,50 +247,106 @@ async fn test_rpc_string<'a>(#[future] client: ClientTestContext<'a>) {
 async fn test_rpc_result<'a>(
     #[case] arg: Result<u8, String>,
     #[case] expected: Result<u8, String>,
-    #[future] client: ClientTestContext<'a>,
+    #[future] ipc: TestIpcContext<'a>,
 ) {
-    assert_eq!(expected, client.rpc_result(arg).await.unwrap());
+    assert_eq!(expected, ipc.client.rpc_result(arg).await.unwrap());
 }
 
 #[rstest]
-#[case(Some(5), Some(15))]
+#[case(Some("hello ".into()), Some("hello world".into()))]
 #[case(None, None)]
 #[tokio::test]
 #[awt]
 async fn test_rpc_option<'a>(
-    #[case] arg: Option<u8>,
-    #[case] expected: Option<u8>,
-    #[future] client: ClientTestContext<'a>,
+    #[case] arg: Option<String>,
+    #[case] expected: Option<String>,
+    #[future] ipc: TestIpcContext<'a>,
 ) {
-    assert_eq!(expected, client.rpc_option(arg).await.unwrap());
+    assert_eq!(expected, ipc.client.rpc_option(arg).await.unwrap());
 }
 
 #[rstest]
 #[tokio::test]
 #[awt]
-async fn test_rpc_vec<'a>(#[future] client: ClientTestContext<'a>) {
+async fn test_rpc_vec<'a>(#[future] ipc: TestIpcContext<'a>) {
     assert_eq!(
         vec![11u8, 20, 35, 60],
-        client.rpc_vec(&[1, 10, 25, 50]).await.unwrap()
+        ipc.client.rpc_vec(&[1, 10, 25, 50]).await.unwrap()
     );
 }
 
 #[rstest]
 #[tokio::test]
 #[awt]
-async fn test_rpc_array<'a>(#[future] client: ClientTestContext<'a>) {
+async fn test_rpc_array<'a>(#[future] ipc: TestIpcContext<'a>) {
     assert_eq!(
         [11, 20, 35, 60],
-        client.rpc_array(&[1, 10, 25, 50]).await.unwrap()
+        ipc.client.rpc_array(&[1, 10, 25, 50]).await.unwrap()
     );
 }
 
 #[rstest]
 #[tokio::test]
 #[awt]
-async fn test_rpc_tuple<'a>(#[future] client: ClientTestContext<'a>) {
+async fn test_rpc_tuple<'a>(#[future] ipc: TestIpcContext<'a>) {
     assert_eq!(
         (11, String::from("hello world")),
-        client.rpc_tuple(&(1, "hello ".into())).await.unwrap()
+        ipc.client.rpc_tuple(&(1, "hello ".into())).await.unwrap()
     );
 }
+
+macro_rules! pubsub_test {
+    // 2 args: no description, so use "base"
+    ($ty:ident, $send:expr) => {
+        pubsub_test!(@inner $ty, $send, $send, base);
+    };
+
+    // 3 args: if 3rd arg is an ident, treat as suffix/desc
+    ($ty:ident, $send:expr, $desc:ident) => {
+        pubsub_test!(@inner $ty, $send, $send, $desc);
+    };
+
+    // 3 args: if 3rd arg is an expr, treat as recv value, desc = base
+    ($ty:ident, $send:expr, $recv:expr) => {
+        pubsub_test!(@inner $ty, $send, $recv, base);
+    };
+
+    // 4 args: full explicit
+    ($ty:ident, $send:expr, $recv:expr, $desc:ident) => {
+        pubsub_test!(@inner $ty, $send, $recv, $desc);
+    };
+
+    // Internal arm: generate the test function
+    (@inner $ty:ident, $send:expr, $recv:expr, $desc:ident) => {
+        paste::paste! {
+            #[rstest]
+            #[tokio::test]
+            #[awt]
+            async fn [< test_pubsub_ $ty _ $desc >]<'a>(#[future] ipc: TestIpcContext<'a>) {
+                ipc.publish.[<pubsub_ $ty>]($send).await.unwrap();
+                assert_eq!($recv, ipc.client.[<get_pubsub_ $ty>]().await.unwrap());
+            }
+        }
+    };
+}
+
+
+pubsub_test!(u8, 5);
+pubsub_test!(i8, 5);
+pubsub_test!(i16, 5);
+pubsub_test!(u16, 5);
+pubsub_test!(i32, 5);
+pubsub_test!(u32, 5);
+pubsub_test!(i64, 5);
+pubsub_test!(u64, 5);
+pubsub_test!(f32, 5.);
+pubsub_test!(f64, 5.);
+pubsub_test!(bool, true);
+pubsub_test!(string, "hello world", String::from("hello world"));
+pubsub_test!(result, Ok(5), case_ok);
+pubsub_test!(result, Err("hello world".into()), case_err);
+pubsub_test!(option, Some("hello world".into()), case_some);
+pubsub_test!(option, None, case_none);
+pubsub_test!(vec, &[1u8, 2, 3], vec![1u8, 2, 3]);
+pubsub_test!(array, &[1u8, 2, 3, 4], [1u8, 2, 3, 4]);
+pubsub_test!(tuple, &(5u8, "hello".into()), (5u8, "hello".into()));

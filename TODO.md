@@ -12,6 +12,9 @@ issues.
 * Handle robust Redis re-connection logic. Can likely lean on existing implementations within the
   `redis-rs` library for this.
 * Remove all `.unwrap()` within generated and library code and handle and/or propagate all errors.
+* Result/Option and pass by reference. I think what we really want it `Option<&T>` when `T` is to be
+  passed by reference, and `Option<T>` when `T` is by value. This takes a bit more convoluted logic
+  though so we'll skip for now, but is worth revisiting.
 * Look into using [CoW](https://doc.rust-lang.org/std/borrow/enum.Cow.html)
     * to cut down on the complexity of the generated message structs in the context of handling both
       references and by value
