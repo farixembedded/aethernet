@@ -21,3 +21,8 @@ rand = "0.9.1"
 futures = "0.3.31"
 # Full tokio runtime for the examples and tests
 tokio = { workspace = true, features = ["full"]}
+# Test dependencies
+rstest = "0.25"
+num-traits = "0.2"
+paste = "1.0"
+lazy_static = "1.5"

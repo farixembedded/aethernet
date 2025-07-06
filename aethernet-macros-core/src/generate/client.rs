@@ -19,6 +19,7 @@ fn generate_rpc_calls(rpc_info: &IpcInfo) -> proc_macro2::TokenStream {
         let req_field_names = endpoint.req_args_name_by_value();
 
         calls.push(quote! {
+            #[doc = "client call"]
             pub async fn #endpoint_name(&self,#(#method_args),*) -> Result<#rep_type, ::aethernet::AethernetError> {
                 type ReqRef<'a> = <rpc::#endpoint_struct as ::aethernet::AethernetRpc<'a>>::ReqRefType;
                 let req = ReqRef { #(#req_field_names),* };

@@ -33,7 +33,7 @@ impl IpcArg {
     /// them if passed by ref
     pub fn name_and_type_by_ref_with_lifetime(&self) -> (TokenStream, Option<TokenStream>) {
         let name = &self.name;
-        match self.ty.emit_rust_reference() {
+        match self.ty.to_syn_type_as_reference_type() {
             Some(ty) => (quote! {#name: &'a #ty}, Some(quote! {<'a>})),
             None => {
                 let ty = &self.ty;
@@ -46,7 +46,7 @@ impl IpcArg {
     /// be different in the ref case
     pub fn name_and_type_by_ref(&self) -> TokenStream {
         let name = &self.name;
-        match self.ty.emit_rust_reference() {
+        match self.ty.to_syn_type_as_reference_type() {
             Some(ty) => quote! {#name: &#ty},
             None => {
                 let ty = &self.ty;
@@ -128,7 +128,12 @@ impl AethernetType {
             AethernetType::Result { t, e } => syn::parse_quote!( Result<#t, #e> ),
             AethernetType::Option(t) => syn::parse_quote!( Option<#t> ),
             AethernetType::Vec(t) => syn::parse_quote!( Vec<#t> ),
-            AethernetType::Array { t, n } => syn::parse_quote!( [#t; #n] ),
+            AethernetType::Array { t, n } => {
+                // we need to coerce the size into a literal int so `parse_quote` below doesn't add
+                // typing information which confusing code generation for autocompletion
+                let lit_size: syn::LitInt = syn::parse_str(&n.to_string()).unwrap();
+                syn::parse_quote!( [#t; #lit_size])
+            }
             AethernetType::Tuple(t) => {
                 let types = t.iter().map(|t| t.to_syn_type()).collect::<Vec<_>>();
                 match types.len() {
@@ -144,7 +149,7 @@ impl AethernetType {
 
     /// Check if a type should be passed to call or publish functions by ref to prevent ownership/copy
     /// issues. Returns the type to use when passing by reference (might be different than the input).
-    pub fn emit_rust_reference(&self) -> Option<syn::Type> {
+    pub fn to_syn_type_as_reference_type(&self) -> Option<syn::Type> {
         match self {
             AethernetType::String => {
                 // Strings are passed by ref as a str slice
@@ -154,9 +159,9 @@ impl AethernetType {
                 // Vecs are passed by ref as a slice
                 Some(syn::parse_quote!( [#t]))
             }
-            AethernetType::Array { t, n: _ } => {
-                // Arrays are passed by ref as a slice
-                Some(syn::parse_quote!( [#t]))
+            AethernetType::Array {..} => {
+                // Arrays are passed as themselves
+                Some(self.to_syn_type())
             }
             AethernetType::Tuple(_) => {
                 // Tuples are passed by ref as themselves
@@ -484,5 +489,43 @@ mod test {
         }; "nested compound")]
     fn test_result(input: &str) -> AethernetType {
         input_to_aethernet_type(input)
+    }
+
+    mod reference_emission {
+        use super::*;
+        use test_case::test_case;
+
+        #[test_case(AethernetType::U8 ; "u8")]
+        #[test_case(AethernetType::I8 ; "i8")]
+        #[test_case(AethernetType::U16 ; "u16")]
+        #[test_case(AethernetType::I16 ; "i16")]
+        #[test_case(AethernetType::U32 ; "u32")]
+        #[test_case(AethernetType::I32 ; "i32")]
+        #[test_case(AethernetType::U64 ; "u64")]
+        #[test_case(AethernetType::I64 ; "i64")]
+        #[test_case(AethernetType::F32 ; "f32")]
+        #[test_case(AethernetType::F64 ; "f64")]
+        #[test_case(AethernetType::Bool; "bool")]
+        #[test_case(AethernetType::Result{t: AethernetType::U8.into(), e: AethernetType::U8.into()} ; "Result")]
+        #[test_case(AethernetType::Option(AethernetType::U8.into()); "Option")]
+        fn test_non_ref_types_dont_return_a_ref(ty: AethernetType) {
+            assert!(ty.to_syn_type_as_reference_type().is_none());
+        }
+
+        #[test_case(AethernetType::String
+            => syn::parse_str::<syn::Type>("str").unwrap()
+            ; "String")]
+        #[test_case(AethernetType::Vec(AethernetType::U8.into())
+            => syn::parse_str::<syn::Type>("[u8]").unwrap()
+            ; "Vec")]
+        #[test_case(AethernetType::Array{t: AethernetType::U8.into(), n: 4}
+            => syn::parse_str::<syn::Type>("[u8;4]").unwrap()
+            ; "array")]
+        #[test_case(AethernetType::Tuple(vec![AethernetType::U8, AethernetType::U8])
+            => syn::parse_str::<syn::Type>("(u8,u8)").unwrap()
+            ; "tuple")]
+        fn test_ref_type(ty: AethernetType) -> syn::Type {
+            ty.to_syn_type_as_reference_type().unwrap()
+        }
     }
 }
