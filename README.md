@@ -1,5 +1,7 @@
 # Aethernet - Redis based IPC for Rust
 
+[![Aethernet - CI](https://github.com/studio3e8/aethernet/actions/workflows/ci.yml/badge.svg)](https://github.com/studio3e8/aethernet/actions/workflows/ci.yml)
+
 Aethernet is an IPC system for Rust that provides RPC through the [ReqRep
 pattern](https://en.wikipedia.org/wiki/Request%E2%80%93response) pattern, and event driven updates
 through the [PubSub pattern](https://en.wikipedia.org/wiki/Publish%E2%80%93subscribe_pattern). It is
