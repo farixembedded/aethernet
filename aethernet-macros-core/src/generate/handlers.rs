@@ -174,12 +174,14 @@ fn generate_ipc_handler(ipc_info: &IpcInfo) -> proc_macro2::TokenStream {
             }
 
             #[must_use = "The task guard must be assigned to prevent the task from being aborted immediately"]
-            pub fn spawn_handler(connection_string: &str, handlers: Box<T>) -> ::aethernet::AethernetHandlerGuard {
+            pub async fn spawn_handler(connection_string: &str, handlers: Box<T>) -> ::aethernet::AethernetHandlerGuard {
                 let connection_string = connection_string.to_string();
+                // construct the handler outside the tokio task so it is fully ready when this function returns
+                // TODO: error handling
+                let handler_instance = Self::new(&connection_string, handlers).await;
+
                 let join_handle = ::tokio::spawn(async move {
-                    // TODO: we could get an error here and report back and not spawn
-                    // Move this above and make spawn_handler async
-                    let mut handler_instance = Self::new(&connection_string, handlers).await;
+                    let mut handler_instance = handler_instance;
                     loop {
                         // TODO: do we error handle here somehow?
                         handler_instance.handle_one_incoming().await;

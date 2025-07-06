@@ -12,6 +12,9 @@ issues.
 * Handle robust Redis re-connection logic. Can likely lean on existing implementations within the
   `redis-rs` library for this.
 * Remove all `.unwrap()` within generated and library code and handle and/or propagate all errors.
+* Result/Option and pass by reference. I think what we really want it `Option<&T>` when `T` is to be
+  passed by reference, and `Option<T>` when `T` is by value. This takes a bit more convoluted logic
+  though so we'll skip for now, but is worth revisiting.
 * Look into using [CoW](https://doc.rust-lang.org/std/borrow/enum.Cow.html)
     * to cut down on the complexity of the generated message structs in the context of handling both
       references and by value
@@ -46,3 +49,5 @@ issues.
 * Add CI w/ checks (clippy, udep, etc.) and build. Add automation for releases as well.
 * Keep the examples up to date along the way and clean them up to demonstrate usage and features of
   the library. Add more comments along the way to help people understand usage.
+* Add #[doc] annotation on generated structures in the proc macro
+  * Process doc strings on the interface trait functions and reapply them to generated code

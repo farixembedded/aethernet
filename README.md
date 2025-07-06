@@ -70,26 +70,29 @@ At the core of the wire format is the notion of an Aethernet message. A message 
 arguments, the response values, or the content of a Pubsub update. Messages are structs with fields
 where the name is a string of the field, and the value is one of the above valid types described.
 
-TODO: Get explicit about how the field names and topic/method names get coerced (i.e. to Pascal
-case) in different places from the ICD.
+[serde_json's data model](https://serde.rs/data-model.html) is used as the ground truth for the
+ message serialization format.
 
-* [serde_json's data model](https://serde.rs/data-model.html) is used as the ground truth for the
-  message serialization format.
-* Currently there aren't restrictions on any datatypes that are normally in scope in Rust. This will
-  be reduced down to a supported list prior to v1.0. The intention is to support:
-    * signed and unsigned integers: `u8`, `i8`, `u16`, `i16`, `u32`, `i32`, `u64`, `i64`
-    * Floating point: `f32`, `f64`
-    * boolean: `bool`
-    * Strings: `String`/`&str`
-    * Vectors: `Vec<T>`/`&[T]`
-    * Fixed length arrays: `[T; N]`/`&[T; N]`
-    * Rusts built-in Result enum: `Result<T, E>`
-    * Rusts nullable Option: `Option<T>`
-    * Tuples: unnamed ordered compound of other types `(T1, T2, T3, ...)`
-    * Arbitrary Enums and Structs (not currently implmented)
-      * Define arbitrary enums and structs composed of the above data types
-      * Only can use arbitrary compound types within the interface they are defined in so the ICD
-        for any interface is self-contained without dependencies.
+### Types
+
+Aethernet supports a number types that can be used in IPC messages. They are heavily drawn from
+Rust, but an eye on allowing easy support in other languages is considered and should be reasonably
+possible (e.g. Rust's `Option<T>` maps nicely to C++'s `std::optional<T>`).
+
+Below are the supported types and their rust type names:
+* signed and unsigned integers: `u8`, `i8`, `u16`, `i16`, `u32`, `i32`, `u64`, `i64`
+* Floating point: `f32`, `f64`
+* boolean: `bool`
+* Strings: `String`/`&str`
+* Vectors: `Vec<T>`/`&[T]`
+* Fixed length arrays: `[T; N]`/`&[T; N]`
+* Rusts built-in Result enum: `Result<T, E>`
+* Rusts nullable Option: `Option<T>`
+* Tuples: unnamed ordered compound of other types `(T1, T2, T3, ...)`
+* Arbitrary Enums and Structs (not currently implemented)
+  * Define arbitrary enums and structs composed of the above data types
+  * Only can use arbitrary compound types within the interface they are defined in so the ICD
+    for any interface is self-contained without dependencies.
 * Internal Aethernet Error messages take the format of and Enum with optional string value for some
   error types
 

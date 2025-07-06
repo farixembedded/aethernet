@@ -1,7 +1,7 @@
 // Copyright 2025 Farix Embedded LLC, studio 3e8 Inc.
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 
-use crate::collect::{EndpointInfo, IpcInfo};
+use crate::{collect::{EndpointInfo, IpcInfo}, typing::IpcArg};
 use quote::{format_ident, quote};
 
 /// Generate methods for the client used to invoke RPC calls on a remote server
@@ -19,6 +19,7 @@ fn generate_rpc_calls(rpc_info: &IpcInfo) -> proc_macro2::TokenStream {
         let req_field_names = endpoint.req_args_name_by_value();
 
         calls.push(quote! {
+            #[doc = "client call"]
             pub async fn #endpoint_name(&self,#(#method_args),*) -> Result<#rep_type, ::aethernet::AethernetError> {
                 type ReqRef<'a> = <rpc::#endpoint_struct as ::aethernet::AethernetRpc<'a>>::ReqRefType;
                 let req = ReqRef { #(#req_field_names),* };
@@ -46,12 +47,12 @@ fn generate_pubsub_getters(pubsub_info: &IpcInfo) -> proc_macro2::TokenStream {
 
         let get_method = format_ident!("get_{}", endpoint_name);
 
-        if let [(pat, ty)] = req_args.as_slice() {
+        if let [IpcArg {name, ty}] = req_args.as_slice() {
             // if the pubsub message contains only one field, then we return just that value, no struct wrapping
             calls.push(quote! {
                 pub async fn #get_method(&self) -> Result<#ty, ::aethernet::AethernetError> {
                     let msg = self.client.get::<pubsub::#endpoint_struct>().await?;
-                    Ok(msg.#pat)
+                    Ok(msg.#name)
                 }
             })
         } else {

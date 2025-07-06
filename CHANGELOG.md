@@ -11,6 +11,12 @@ follow SemVer.
 
 Initial public release.
 
+**Breaking Changes**
+* The types available to Aethernet IPC are now documented and checked at build time.
+* Tokio spawn helper for RPC and Pubsub servers are now `async`
+
+**Changes**
+* Tokio spawn helps now fully initialize before returning.
 
 ## [v0.1.0] - 2025-06-12
 
