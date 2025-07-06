@@ -1,8 +1,9 @@
 // NOTE: these integration tests require a Redis server running on localhost:6379
 
-use redis::AsyncTypedCommands;
+mod common;
 
-const CON: &str = "redis://127.0.0.1/";
+use redis::AsyncTypedCommands;
+use common::valkey_con_str;
 
 #[aethernet::interface]
 mod test_interface {
@@ -13,7 +14,7 @@ mod test_interface {
 }
 
 async fn clear_redis() {
-    let client = redis::Client::open(CON).unwrap();
+    let client = redis::Client::open(valkey_con_str()).unwrap();
     let mut con = client.get_multiplexed_tokio_connection().await.unwrap();
     con.flushall().await.unwrap();
 }
@@ -29,8 +30,8 @@ async fn test() {
         }
     }
 
-    let _guard = TestInterfaceRpcServer::spawn_handler(CON, RpcHandler {}.into()).await;
-    let client = TestInterfaceClient::new(CON).await;
+    let _guard = TestInterfaceRpcServer::spawn_handler(&valkey_con_str(), RpcHandler {}.into()).await;
+    let client = TestInterfaceClient::new(&valkey_con_str()).await;
 
     assert_eq!(12, client.add(5, 7).await.unwrap());
     assert_eq!(3, client.add(7, -4).await.unwrap());

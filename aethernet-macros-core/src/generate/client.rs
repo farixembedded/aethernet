@@ -1,7 +1,10 @@
 // Copyright 2025 Farix Embedded LLC, studio 3e8 Inc.
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 
-use crate::{collect::{EndpointInfo, IpcInfo}, typing::IpcArg};
+use crate::{
+    collect::{EndpointInfo, IpcInfo},
+    typing::IpcArg,
+};
 use quote::{format_ident, quote};
 
 /// Generate methods for the client used to invoke RPC calls on a remote server
@@ -47,7 +50,7 @@ fn generate_pubsub_getters(pubsub_info: &IpcInfo) -> proc_macro2::TokenStream {
 
         let get_method = format_ident!("get_{}", endpoint_name);
 
-        if let [IpcArg {name, ty}] = req_args.as_slice() {
+        if let [IpcArg { name, ty }] = req_args.as_slice() {
             // if the pubsub message contains only one field, then we return just that value, no struct wrapping
             calls.push(quote! {
                 pub async fn #get_method(&self) -> Result<#ty, ::aethernet::AethernetError> {

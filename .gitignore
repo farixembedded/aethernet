@@ -1,4 +1,5 @@
 # Rust build output
 /target
+/target-docker
 # Don't commit Cargo.lock since we are a library
 /Cargo.lock

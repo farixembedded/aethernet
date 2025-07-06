@@ -100,9 +100,10 @@ impl EndpointInfo {
     /// All req args as `name: type` or `name: &type` where some types are passed by reference. Note
     /// that type might be different in the ref case
     pub fn req_args_name_and_type_by_ref(&self) -> Vec<TokenStream> {
-        self.req_args.iter().map(|arg|{
-            arg.name_and_type_by_ref()
-        }).collect()
+        self.req_args
+            .iter()
+            .map(|arg| arg.name_and_type_by_ref())
+            .collect()
     }
 }
 

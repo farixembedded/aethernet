@@ -19,9 +19,7 @@ pub struct AethernetSubscriber {
 
 impl AethernetSubscriber {
     pub async fn new(connection_string: &str, service_name: &str, interface_name: &str) -> Self {
-        info!(
-            "Creating new subscriber for service: {service_name}, interface: {interface_name}"
-        );
+        info!("Creating new subscriber for service: {service_name}, interface: {interface_name}");
 
         // the Client needs resp3 protocol to support concurrent interface use and PushInfo updates
         let connection_string = match connection_string.contains("protocol=resp3") {

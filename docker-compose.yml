@@ -1,0 +1,18 @@
+services:
+  valkey:
+    image: valkey/valkey:8
+    expose:
+      - "6379"
+
+  rust:
+    image: rust:1.88
+    working_dir: /build
+    volumes:
+      - .:/build
+    depends_on:
+      - valkey
+    environment:
+      VALKEY_URL: redis://valkey:6379
+      # to not interfere with local builds
+      CARGO_TARGET_DIR: /build/target-docker
+    command: bash -c "cargo build && cargo test"
