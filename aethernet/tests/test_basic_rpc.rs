@@ -2,8 +2,8 @@
 
 mod common;
 
-use redis::AsyncTypedCommands;
 use common::valkey_con_str;
+use redis::AsyncTypedCommands;
 
 #[aethernet::interface]
 mod test_interface {
@@ -30,7 +30,8 @@ async fn test() {
         }
     }
 
-    let _guard = TestInterfaceRpcServer::spawn_handler(&valkey_con_str(), RpcHandler {}.into()).await;
+    let _guard =
+        TestInterfaceRpcServer::spawn_handler(&valkey_con_str(), RpcHandler {}.into()).await;
     let client = TestInterfaceClient::new(&valkey_con_str()).await;
 
     assert_eq!(12, client.add(5, 7).await.unwrap());

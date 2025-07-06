@@ -5,11 +5,11 @@
 mod common;
 
 use aethernet::AethernetHandlerGuard;
+use common::valkey_con_str;
 use lazy_static::lazy_static;
 use redis::AsyncTypedCommands;
 use rstest::{fixture, rstest};
 use tokio::sync::Mutex;
-use common::valkey_con_str;
 
 #[aethernet::interface]
 mod type_test_interface {
@@ -168,7 +168,8 @@ async fn ipc<'a>() -> TestIpcContext<'a> {
     let mut con = client.get_multiplexed_tokio_connection().await.unwrap();
     con.flushall().await.unwrap();
 
-    let server_guard = TypeTestInterfaceRpcServer::spawn_handler(&valkey_con_str(), RpcHandler {}.into()).await;
+    let server_guard =
+        TypeTestInterfaceRpcServer::spawn_handler(&valkey_con_str(), RpcHandler {}.into()).await;
     let client = TypeTestInterfaceClient::new(&valkey_con_str()).await;
     let publish = TypeTestInterfacePublisher::new(&valkey_con_str()).await;
 

@@ -1,0 +1,22 @@
+name: Aethernet - CI
+
+on:
+  # Always build main
+  push:
+    branches:
+      main
+  # For pull requests
+  pull_request:
+  # Allow manually triggered runs
+  workflow_dispatch:
+
+jobs:
+  run-build:
+    name: Validate, run build, and tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Run build
+        run: docker compose run --remove-orphans --rm --build rust
+
