@@ -51,4 +51,3 @@ issues.
   the library. Add more comments along the way to help people understand usage.
 * Add #[doc] annotation on generated structures in the proc macro
   * Process doc strings on the interface trait functions and reapply them to generated code
-* Port macro tests to `rstest`

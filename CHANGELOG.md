@@ -16,7 +16,7 @@ Initial public release.
 * Tokio spawn helper for RPC and Pubsub servers are now `async`
 
 **Changes**
-* Tokio spawn helps now fully initialize the server before returning.
+* Tokio spawn helps now fully initialize before returning.
 
 ## [v0.1.0] - 2025-06-12
 
