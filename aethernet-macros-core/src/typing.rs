@@ -151,17 +151,6 @@ impl AethernetType {
     /// issues. Returns the type to use when passing by reference (might be different than the input).
     pub fn to_syn_type_as_reference_type(&self) -> Option<syn::Type> {
         match self {
-            // AethernetType::Result { t, e } => {
-            //     // Result is by value, but inners are by ref if they want to be
-            //     let t_by_ref = t.to_syn_type_as_reference_type().unwrap_or(t.to_syn_type());
-            //     let e_by_ref = e.to_syn_type_as_reference_type().unwrap_or(e.to_syn_type());
-            //     Some(syn::parse_quote!( Result<#t_by_ref, #e_by_ref> ))
-            // }
-            // AethernetType::Option(t) => {
-            //     // Option is by value, but the inner is by ref it it wants to be
-            //     let t_by_ref = t.to_syn_type_as_reference_type().unwrap_or(t.to_syn_type());
-            //     Some(syn::parse_quote!( Option<#t_by_ref>  ))
-            // }
             AethernetType::String => {
                 // Strings are passed by ref as a str slice
                 Some(syn::parse_quote!(str))
