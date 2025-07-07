@@ -242,8 +242,8 @@ async fn test_rpc_string<'a>(#[future] ipc: TestIpcContext<'a>) {
 }
 
 #[rstest]
-#[case(Ok(5), Ok(15))]
-#[case(Err("hello ".into()), Err("hello world".into()))]
+#[case::ok(Ok(5), Ok(15))]
+#[case::err(Err("hello ".into()), Err("hello world".into()))]
 #[tokio::test]
 #[awt]
 async fn test_rpc_result<'a>(
@@ -255,8 +255,8 @@ async fn test_rpc_result<'a>(
 }
 
 #[rstest]
-#[case(Some("hello ".into()), Some("hello world".into()))]
-#[case(None, None)]
+#[case::some(Some("hello ".into()), Some("hello world".into()))]
+#[case::none(None, None)]
 #[tokio::test]
 #[awt]
 async fn test_rpc_option<'a>(
