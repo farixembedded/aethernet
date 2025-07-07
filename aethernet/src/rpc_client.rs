@@ -63,7 +63,7 @@ impl AethernetRpcClient {
             req_type: T::METHOD_NAME.into(),
             req: &req,
         };
-        let serialized_req_envelope = serde_json::to_string(&req_envelope).unwrap();
+        let serialized_req_envelope = serde_json::to_string(&req_envelope)?;
         info!(
             "Sending request to Redis queue: {}",
             self.keys.rpc_request()
@@ -73,8 +73,7 @@ impl AethernetRpcClient {
         // send request envelope
         valkey
             .lpush(self.keys.rpc_request(), &serialized_req_envelope)
-            .await
-            .unwrap();
+            .await?;
 
         // wait for response with a timeout
         // TODO: We should tune the timeout. Maybe should be part of the AethernetRpc trait somehow with a sane default?
@@ -89,8 +88,7 @@ impl AethernetRpcClient {
 
         let maybe_serialized_response = &valkey
             .brpop(&response_key, Self::DEFAULT_TIMEOUT_SECONDS)
-            .await
-            .unwrap();
+            .await?;
 
         match &maybe_serialized_response {
             Some([_, serialized_response]) => {

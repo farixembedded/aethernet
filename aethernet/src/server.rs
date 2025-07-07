@@ -76,8 +76,8 @@ impl AethernetServer {
 
         let message = serde_json::to_string(msg)?;
 
-        valkey.set(key_pubsub_latest, &message).await.unwrap();
-        valkey.publish(key_pubsub, &message).await.unwrap();
+        valkey.set(key_pubsub_latest, &message).await?;
+        valkey.publish(key_pubsub, &message).await?;
         Ok(())
     }
 }

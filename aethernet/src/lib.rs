@@ -3,6 +3,8 @@
 
 // warnings are errors in release builds. Use `debug_assertions` as a surrogate to check for debug builds
 #![cfg_attr(not(debug_assertions), deny(warnings))]
+// don't allow unwrapping
+#![warn(clippy::unwrap_used)]
 
 // ********** Public API surface
 pub use rpc_client::AethernetRpcClient;

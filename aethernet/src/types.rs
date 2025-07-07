@@ -14,6 +14,8 @@ pub enum AethernetError {
     // below. These should also be the actual Error, not a String.
     SerdeError(String),
     RedisError(String),
+    PubsubListen,
+    KeyDecode(String,)
 }
 
 impl std::fmt::Display for AethernetError {

@@ -78,7 +78,11 @@ impl AethernetSubscriber {
 
     pub async fn get_one_sub_message(&mut self) -> Result<(String, String), AethernetError> {
         loop {
-            let incoming = self.sub_channel.recv().await.unwrap();
+            let incoming = self
+                .sub_channel
+                .recv()
+                .await
+                .ok_or(AethernetError::PubsubListen)?;
             if !matches!(
                 incoming.kind,
                 redis::PushKind::Message | redis::PushKind::PMessage | redis::PushKind::SMessage
@@ -92,8 +96,10 @@ impl AethernetSubscriber {
                 redis::Value::BulkString(value),
             ] = incoming.data.as_slice()
             {
-                let valkey_key = String::from_utf8(key.clone()).unwrap();
-                let msg_json = String::from_utf8(value.clone()).unwrap();
+                let valkey_key = String::from_utf8(key.clone())
+                    .map_err(|err| AethernetError::KeyDecode(err.to_string()))?;
+                let msg_json = String::from_utf8(value.clone())
+                    .map_err(|err| AethernetError::KeyDecode(err.to_string()))?;
 
                 // trim the full redis key down to just be the name
                 let msg_type = match valkey_key.rsplit_once(":") {
