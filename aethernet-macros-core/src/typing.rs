@@ -318,73 +318,73 @@ mod test {
     }
 
     #[rstest]
-    #[case("()", AethernetType::Unit)]
-    #[case("u8", AethernetType::U8)]
-    #[case("i8", AethernetType::I8)]
-    #[case("u16", AethernetType::U16)]
-    #[case("i16", AethernetType::I16)]
-    #[case("u32", AethernetType::U32)]
-    #[case("i32", AethernetType::I32)]
-    #[case("u64", AethernetType::U64)]
-    #[case("i64", AethernetType::I64)]
-    #[case("f32", AethernetType::F32)]
-    #[case("f64", AethernetType::F64)]
-    #[case("bool", AethernetType::Bool)]
-    #[case("String", AethernetType::String)]
+    #[case::unit("()", AethernetType::Unit)]
+    #[case::u8("u8", AethernetType::U8)]
+    #[case::i8("i8", AethernetType::I8)]
+    #[case::u16("u16", AethernetType::U16)]
+    #[case::i16("i16", AethernetType::I16)]
+    #[case::u32("u32", AethernetType::U32)]
+    #[case::i32("i32", AethernetType::I32)]
+    #[case::u64("u64", AethernetType::U64)]
+    #[case::i64("i64", AethernetType::I64)]
+    #[case::f32("f32", AethernetType::F32)]
+    #[case::f64("f64", AethernetType::F64)]
+    #[case::bool("bool", AethernetType::Bool)]
+    #[case::string("String", AethernetType::String)]
     fn test_primitive_type_parsing(#[case] input: &str, #[case] expected: AethernetType) {
         assert_eq!(expected, input_to_aethernet_type(input));
     }
 
     #[rstest]
-    #[case("[u8; -4]")] // negative number
-    #[case("[u8; 4+4]")] // expressions
-    #[case("[u8; 234adsf]")] // malformed number
-    #[case("[u8; 2usize]")] // literal type annotation
+    #[case::negative_number("[u8; -4]")]
+    #[case::expressions("[u8; 4+4]")]
+    #[case::malformed_number("[u8; 234adsf]")]
+    #[case::literal_type_annotation("[u8; 2usize]")]
     fn test_parse_array_size_failing_cases(#[case] input: &str) {
         let result = parse_type(&syn::parse_str(input).unwrap());
         assert!(result.is_err());
     }
 
     #[rstest]
-    #[case("[u8; 4]", AethernetType::Array { t: AethernetType::U8.into(), n: 4 })] // lenth simple number
-    #[case("[u8; 23]", AethernetType::Array { t: AethernetType::U8.into(), n: 23 })] // simple number 2
-    #[case("[u8; 0]", AethernetType::Array { t: AethernetType::U8.into(), n: 0 })] // zero
-    #[case("[u8; 153232963]", AethernetType::Array { t: AethernetType::U8.into(), n: 153232963 })] // fairly large number
-    #[case("[u8; 1]", AethernetType::Array { t: AethernetType::U8.into(), n: 1 })] // type u8
-    #[case("[u64; 1]", AethernetType::Array { t: AethernetType::U64.into(), n: 1 })] // type u64
-    #[case("[String; 1]", AethernetType::Array { t: AethernetType::String.into(), n: 1 })] // type String
-    #[case("[[f32; 4]; 8]", AethernetType::Array {
+    #[case::simple_number_1("[u8; 4]", AethernetType::Array { t: AethernetType::U8.into(), n: 4 })]
+    #[case::simple_number_2("[u8; 23]", AethernetType::Array { t: AethernetType::U8.into(), n: 23 })]
+    #[case::zero("[u8; 0]", AethernetType::Array { t: AethernetType::U8.into(), n: 0 })]
+    #[case::fairly_large_number("[u8; 153232963]", AethernetType::Array { t: AethernetType::U8.into(), n: 153232963 })]
+    #[case::type_u8("[u8; 1]", AethernetType::Array { t: AethernetType::U8.into(), n: 1 })]
+    #[case::type_u64("[u64; 1]", AethernetType::Array { t: AethernetType::U64.into(), n: 1 })]
+    #[case::type_string("[String; 1]", AethernetType::Array { t: AethernetType::String.into(), n: 1 })]
+    #[case::nested("[[f32; 4]; 8]", AethernetType::Array {
             t: AethernetType::Array {
                 t: AethernetType::F32.into(),
                 n: 4
             }.into(),
             n: 8
-        })] // nested
-    #[case("[Vec<f32>; 8]", AethernetType::Array {
+        })]
+    #[case::nested_compound("[Vec<f32>; 8]", AethernetType::Array {
             t: AethernetType::Vec(
                 AethernetType::F32.into()
             ).into(),
             n: 8
-        })] // nested compound
+        })]
     fn test_parse_array_passing(#[case] input: &str, #[case] expected: AethernetType) {
         assert_eq!(expected, input_to_aethernet_type(input));
     }
 
     #[rstest]
-    #[case("(i32,)", AethernetType::Tuple(
+    #[case::single_member_tuple("(i32,)", AethernetType::Tuple(
             vec![
                 AethernetType::I32,
             ]
-        ))] // single member tuple
-    #[case("(i32, u8, String, bool)", AethernetType::Tuple(
+        ))]
+    #[case::multi_member_tuple("(i32, u8, String, bool)", AethernetType::Tuple(
             vec![
                 AethernetType::I32,
                 AethernetType::U8,
                 AethernetType::String,
                 AethernetType::Bool,
             ]
-        ))] // multi member tuple
-    #[case("(i32, u8, String, (u16, i16))", AethernetType::Tuple(
+        ))]
+    #[case::nested_tuples("(i32, u8, String, (u16, i16))", AethernetType::Tuple(
             vec![
                 AethernetType::I32,
                 AethernetType::U8,
@@ -396,79 +396,79 @@ mod test {
                     ]
                 ),
             ]
-        ))] // nested tuples
-    #[case("(i32, Vec<String>)", AethernetType::Tuple(
+        ))]
+    #[case::compound_nested_tuples("(i32, Vec<String>)", AethernetType::Tuple(
             vec![
                 AethernetType::I32,
                 AethernetType::Vec(
                     AethernetType::String.into()
                 )
             ]
-        ))] // compound nested tuples
+        ))]
     fn test_parse_tuple_passing(#[case] input: &str, #[case] expected: AethernetType) {
         assert_eq!(expected, input_to_aethernet_type(input));
     }
 
     #[rstest]
-    #[case("Vec<i32>", AethernetType::Vec(Box::new(AethernetType::I32)))]
-    #[case("Vec<bool>", AethernetType::Vec(Box::new(AethernetType::Bool)))]
-    #[case("Vec<Vec<i32>>", AethernetType::Vec(
+    #[case::simple_vec_i32("Vec<i32>", AethernetType::Vec(Box::new(AethernetType::I32)))]
+    #[case::simple_vec_bool("Vec<bool>", AethernetType::Vec(Box::new(AethernetType::Bool)))]
+    #[case::nexted_vec("Vec<Vec<i32>>", AethernetType::Vec(
             AethernetType::Vec(
                 AethernetType::I32.into()
             ).into()
-        ))] // compound Vec
-    #[case("Vec<Vec<Vec<i32>>>", AethernetType::Vec(
+        ))]
+    #[case::double_compound_vec("Vec<Vec<Vec<i32>>>", AethernetType::Vec(
             AethernetType::Vec(
                 AethernetType::Vec(
                     AethernetType::I32.into()
                 ).into()
             ).into()
-        ))] // double compound Vec
-    #[case("Vec<[u8; 4]>", AethernetType::Vec(
+        ))]
+    #[case::compound_nested_type("Vec<[u8; 4]>", AethernetType::Vec(
             AethernetType::Array{
                 t:AethernetType::U8.into(),
                 n: 4,
             }.into()
-        ))] // compound nested type
+        ))]
     fn test_parse_vec_passing(#[case] input: &str, #[case] expected: AethernetType) {
         assert_eq!(expected, input_to_aethernet_type(input));
     }
 
     #[rstest]
-    #[case("Option<u8>", AethernetType::Option(AethernetType::U8.into()))] // normal u8
-    #[case("Option<String>", AethernetType::Option(AethernetType::String.into()))] // normal String
-    #[case("Option<Option<f32>>", AethernetType::Option(
+    #[case::normal_u8("Option<u8>", AethernetType::Option(AethernetType::U8.into()))]
+    #[case::normal_string("Option<String>", AethernetType::Option(AethernetType::String.into()))]
+    #[case::nested("Option<Option<f32>>", AethernetType::Option(
             AethernetType::Option(
                 AethernetType::F32.into()
             ).into()
-        ))] // nested
-    #[case("Option<Vec<f32>>", AethernetType::Option(
+        ))]
+    #[case::nested_compound("Option<Vec<f32>>", AethernetType::Option(
             AethernetType::Vec(
                 AethernetType::F32.into()
             ).into()
-        ))] // nested compound
+        ))]
     fn test_option(#[case] input: &str, #[case] expected: AethernetType) {
         assert_eq!(expected, input_to_aethernet_type(input));
     }
 
     #[rstest]
-    #[case("Result<u8, String>", AethernetType::Result{
+    #[case::normal("Result<u8, String>", AethernetType::Result{
             t: AethernetType::U8.into(),
             e: AethernetType::String.into(),
         })]
-    #[case("Result<Result<u8, String>, bool>", AethernetType::Result{
+    #[case::nested("Result<Result<u8, String>, bool>", AethernetType::Result{
             t: AethernetType::Result{
                 t: AethernetType::U8.into(),
                 e: AethernetType::String.into(),
             }.into(),
             e: AethernetType::Bool.into(),
-        })] // nested
-    #[case("Result<Vec<f32>, bool>", AethernetType::Result{
+        })]
+    #[case::nested_compound("Result<Vec<f32>, bool>", AethernetType::Result{
             t: AethernetType::Vec(
                 AethernetType::F32.into(),
             ).into(),
             e: AethernetType::Bool.into(),
-        })] // nested compound
+        })]
     fn test_result(#[case] input: &str, #[case] expected: AethernetType) {
         assert_eq!(expected, input_to_aethernet_type(input));
     }
@@ -478,32 +478,32 @@ mod test {
         use rstest::rstest;
 
         #[rstest]
-        #[case(AethernetType::U8)] // u8
-        #[case(AethernetType::I8)] // i8
-        #[case(AethernetType::U16)] // u16
-        #[case(AethernetType::I16)] // i16
-        #[case(AethernetType::U32)] // u32
-        #[case(AethernetType::I32)] // i32
-        #[case(AethernetType::U64)] // u64
-        #[case(AethernetType::I64)] // i64
-        #[case(AethernetType::F32)] // f32
-        #[case(AethernetType::F64)] // f64
-        #[case(AethernetType::Bool)] // bool
-        #[case(AethernetType::Result{t: AethernetType::U8.into(), e: AethernetType::U8.into()})] // Result
-        #[case(AethernetType::Option(AethernetType::U8.into()))] // Option
+        #[case::u8(AethernetType::U8)]
+        #[case::i8(AethernetType::I8)]
+        #[case::u16(AethernetType::U16)]
+        #[case::i16(AethernetType::I16)]
+        #[case::u32(AethernetType::U32)]
+        #[case::i32(AethernetType::I32)]
+        #[case::u64(AethernetType::U64)]
+        #[case::i64(AethernetType::I64)]
+        #[case::f32(AethernetType::F32)]
+        #[case::f64(AethernetType::F64)]
+        #[case::bool(AethernetType::Bool)]
+        #[case::result(AethernetType::Result{t: AethernetType::U8.into(), e: AethernetType::U8.into()})]
+        #[case::option(AethernetType::Option(AethernetType::U8.into()))]
         fn test_non_ref_types_dont_return_a_ref(#[case] ty: AethernetType) {
             assert!(ty.to_syn_type_as_reference_type().is_none());
         }
 
         #[rstest]
-        #[case(AethernetType::String,
-            syn::parse_str::<syn::Type>("str").unwrap())] // String
-        #[case(AethernetType::Vec(AethernetType::U8.into()),
-            syn::parse_str::<syn::Type>("[u8]").unwrap())] // Vec
-        #[case(AethernetType::Array{t: AethernetType::U8.into(), n: 4},
-            syn::parse_str::<syn::Type>("[u8;4]").unwrap())] // array
-        #[case(AethernetType::Tuple(vec![AethernetType::U8, AethernetType::U8]),
-            syn::parse_str::<syn::Type>("(u8,u8)").unwrap())] // tuple
+        #[case::string(AethernetType::String,
+            syn::parse_str::<syn::Type>("str").unwrap())]
+        #[case::vec(AethernetType::Vec(AethernetType::U8.into()),
+            syn::parse_str::<syn::Type>("[u8]").unwrap())]
+        #[case::array(AethernetType::Array{t: AethernetType::U8.into(), n: 4},
+            syn::parse_str::<syn::Type>("[u8;4]").unwrap())]
+        #[case::tuple(AethernetType::Tuple(vec![AethernetType::U8, AethernetType::U8]),
+            syn::parse_str::<syn::Type>("(u8,u8)").unwrap())]
         fn test_ref_type(#[case] ty: AethernetType, #[case] expected: syn::Type) {
             assert_eq!(expected, ty.to_syn_type_as_reference_type().unwrap());
         }
