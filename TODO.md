@@ -4,14 +4,11 @@ Prior to v1.0 this library is in early development flux, and SemVer is not guara
 changes wil happen. As this list is shrinks and things mature, these should get ported into GitHub
 issues.
 
-* Get explicit about supported types
-  * Document the types in the protocol docs
-  * Add checks in the proc macro to only allow supported types are used. Need to write code for
-    handling nested container types.
-* Add support for custom structs and enums inside the mod for use in the interface.
+* Remove all `.unwrap()` within generated and library code and handle and/or propagate all errors.
 * Handle robust Redis re-connection logic. Can likely lean on existing implementations within the
   `redis-rs` library for this.
-* Remove all `.unwrap()` within generated and library code and handle and/or propagate all errors.
+
+* Add support for custom structs and enums inside the mod for use in the interface.
 * Result/Option and pass by reference. I think what we really want it `Option<&T>` when `T` is to be
   passed by reference, and `Option<T>` when `T` is by value. This takes a bit more convoluted logic
   though so we'll skip for now, but is worth revisiting.
@@ -45,9 +42,11 @@ issues.
     have a feature to provide convenience functions for Tokio.
   * Look into async/parallel dispatch of RPC handlers to allow for handling of multiple concurrent
     RPC request, long lived requests, and out-of-order/pipelined responses.
-* Expose the top level namespace (currently `aethernet`) as an option the user can override.
+* Expose the top level Redis namespace (currently `aethernet`) as an option the user can override.
 * Add CI w/ checks (clippy, udep, etc.) and build. Add automation for releases as well.
 * Keep the examples up to date along the way and clean them up to demonstrate usage and features of
   the library. Add more comments along the way to help people understand usage.
 * Add #[doc] annotation on generated structures in the proc macro
   * Process doc strings on the interface trait functions and reapply them to generated code
+* Make timeout on RPC calls configurable. Maybe on a per method basis with #[] attributes? Maybe
+  give that to the client?

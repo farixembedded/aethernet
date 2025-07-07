@@ -22,7 +22,7 @@ impl AethernetRpcClient {
     const DEFAULT_TIMEOUT_SECONDS: f64 = 1.0;
 
     pub async fn new(connection_string: &str, service_name: &str, interface_name: &str) -> Self {
-        info!("Creating new client for service: {service_name}, interface: {interface_name}");
+        debug!("Creating new client for service: {service_name}, interface: {interface_name}");
 
         // the Client needs resp3 protocol to support concurrent interface use and PushInfo updates
         let connection_string = match connection_string.contains("protocol=resp3") {
@@ -32,7 +32,6 @@ impl AethernetRpcClient {
                 false => format!("{connection_string}?protocol=resp3"),
             },
         };
-        info!("Connecting to Redis at: {connection_string}");
 
         let valkey = {
             let client = redis::Client::open(connection_string).unwrap();
@@ -40,7 +39,7 @@ impl AethernetRpcClient {
         };
 
         let keys = AethernetKeys::new(service_name, interface_name);
-        info!(
+        debug!(
             "Client initialized. RPC request queue: {}",
             keys.rpc_request()
         );
@@ -56,7 +55,7 @@ impl AethernetRpcClient {
 
         let req_id = Uuid::new_v4().to_string();
         let method_name = T::METHOD_NAME;
-        info!("Calling method '{method_name}' with request ID: {req_id}");
+        debug!("Calling method '{method_name}' with request ID: {req_id}");
 
         let req_envelope = AethernetRpcReqEnvelope::<&T::ReqRefType> {
             req_id: req_id.clone(),
@@ -64,11 +63,11 @@ impl AethernetRpcClient {
             req: &req,
         };
         let serialized_req_envelope = serde_json::to_string(&req_envelope)?;
-        info!(
+        debug!(
             "Sending request to Redis queue: {}",
             self.keys.rpc_request()
         );
-        info!("Request envelope: {serialized_req_envelope}");
+        debug!("Request envelope: {serialized_req_envelope}");
 
         // send request envelope
         valkey
@@ -80,7 +79,7 @@ impl AethernetRpcClient {
         // Also, we should make sure if we timeout that the request eventually is pulled from the queue as well
         // can't set TTL/expiry on individual list items, so need to think how to close this gap
         let response_key = self.keys.rpc_response(&req_id);
-        info!(
+        debug!(
             "Waiting for response on Redis queue: {} (timeout: {}s)",
             response_key,
             Self::DEFAULT_TIMEOUT_SECONDS
@@ -92,7 +91,7 @@ impl AethernetRpcClient {
 
         match &maybe_serialized_response {
             Some([_, serialized_response]) => {
-                info!("Received response: {serialized_response}");
+                debug!("Received response: {serialized_response}");
                 // First deserialize as Result<T::RepType, AethernetError> since responses are wrapped
                 match serde_json::from_str::<Result<T::RepType, AethernetError>>(
                     serialized_response,
