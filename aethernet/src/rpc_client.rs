@@ -10,18 +10,21 @@ use crate::{AethernetPubsub, AethernetRpc};
 
 use redis::AsyncTypedCommands;
 use uuid::Uuid;
+use tokio::sync::Mutex;
+use std::sync::Arc;
 
 /// Can send RPC requests and get the latest published value for Pubsub topics
 #[derive(Clone)]
 pub struct AethernetRpcClient {
-    valkey: redis::aio::MultiplexedConnection,
+    valkey_client: redis::Client,
+    valkey_connection: Arc<Mutex<Option<redis::aio::MultiplexedConnection>>>,
     keys: AethernetKeys,
 }
 
 impl AethernetRpcClient {
     const DEFAULT_TIMEOUT_SECONDS: f64 = 1.0;
 
-    pub async fn new(connection_string: &str, service_name: &str, interface_name: &str) -> Self {
+    pub async fn new(connection_string: &str, service_name: &str, interface_name: &str) -> Result<Self, AethernetError> {
         debug!("Creating new client for service: {service_name}, interface: {interface_name}");
 
         // the Client needs resp3 protocol to support concurrent interface use and PushInfo updates
@@ -33,25 +36,23 @@ impl AethernetRpcClient {
             },
         };
 
-        let valkey = {
-            let client = redis::Client::open(connection_string).unwrap();
-            client.get_multiplexed_tokio_connection().await.unwrap()
-        };
-
+        // TODO: don't unwrap, return the error
+        let valkey_client = redis::Client::open(connection_string)?;
         let keys = AethernetKeys::new(service_name, interface_name);
-        debug!(
-            "Client initialized. RPC request queue: {}",
-            keys.rpc_request()
-        );
 
-        Self { valkey, keys }
+        // note: will lazily connect on first IPC call
+        Ok(Self {
+            valkey_client,
+            valkey_connection: Arc::new(Mutex::new(None)),
+            keys,
+        })
     }
 
     pub async fn call<'a, T: AethernetRpc<'a>>(
         &self,
         req: T::ReqRefType,
     ) -> Result<T::RepType, AethernetError> {
-        let mut valkey = self.valkey.clone();
+        let mut valkey = self.ensure_and_get_valkey_connetion().await?;
 
         let req_id = Uuid::new_v4().to_string();
         let method_name = T::METHOD_NAME;
@@ -111,12 +112,27 @@ impl AethernetRpcClient {
     }
 
     pub async fn get<'a, T: AethernetPubsub<'a>>(&self) -> Result<T::MsgType, AethernetError> {
-        let mut valkey = self.valkey.clone();
+        let mut valkey = self.ensure_and_get_valkey_connetion().await?;
 
         let key = self.keys.pubsub_latest(T::MESSAGE_NAME);
         let value = valkey.get(key).await?;
         let value = value.ok_or(AethernetError::ValueNotFound)?;
         serde_json::from_str::<T::MsgType>(&value)
             .map_err(|err| AethernetError::SerdeError(err.to_string()))
+    }
+
+    async fn ensure_and_get_valkey_connetion(&self) -> Result<redis::aio::MultiplexedConnection, AethernetError> {
+        // check connection wth a ping
+        let mut valkey_connection = self.valkey_connection.lock().await;
+        if let Some(valkey_connection) = valkey_connection.as_mut() {
+            if valkey_connection.ping().await.is_ok() {
+                return Ok(valkey_connection.clone());
+            }
+        }
+
+        // try to reconnect once
+        let new_valkey_connection = self.valkey_client.get_multiplexed_tokio_connection().await?;
+        *valkey_connection = Some(new_valkey_connection.clone());
+        Ok(new_valkey_connection)
     }
 }

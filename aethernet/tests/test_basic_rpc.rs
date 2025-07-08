@@ -32,7 +32,7 @@ async fn test() {
 
     let _guard =
         TestInterfaceRpcServer::spawn_handler(&valkey_con_str(), RpcHandler {}.into()).await;
-    let client = TestInterfaceClient::new(&valkey_con_str()).await;
+    let client = TestInterfaceClient::new(&valkey_con_str()).await.unwrap();
 
     assert_eq!(12, client.add(5, 7).await.unwrap());
     assert_eq!(3, client.add(7, -4).await.unwrap());

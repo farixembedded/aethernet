@@ -14,7 +14,7 @@ async fn main() {
         .unwrap_or("redis://127.0.0.1/".into());
 
     // you can create an instance which just holds an open redis connection
-    let client = calculator::CalculatorClient::new(&connection_string).await;
+    let client = calculator::CalculatorClient::new(&connection_string).await.unwrap();
 
     // the client can do both gets and calls. Do a get here for fun
     match client.get_set_once().await {

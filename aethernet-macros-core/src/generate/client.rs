@@ -92,10 +92,10 @@ pub fn generate_client_code(rpc_info: &IpcInfo, pubsub_info: &IpcInfo) -> proc_m
         }
 
         impl #client_struct {
-            pub async fn new(connection_string: &str) -> Self {
-                Self {
-                    client: ::aethernet::AethernetRpcClient::new(connection_string, DEFAULT_SERVICE_NAME, INTERFANCE_NAME).await,
-                }
+            pub async fn new(connection_string: &str) -> Result<Self, ::aethernet::AethernetError> {
+                Ok(Self {
+                    client: ::aethernet::AethernetRpcClient::new(connection_string, DEFAULT_SERVICE_NAME, INTERFANCE_NAME).await?,
+                })
             }
 
             #rpc_call_methods

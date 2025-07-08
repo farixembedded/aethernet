@@ -55,7 +55,9 @@ async fn main() {
 
     // to get the latest value published without waiting for an incoming publish you can create an
     // instance of a client. client.get_*() is used to access the latest published values.
-    let getter = calculator::CalculatorClient::new(&connection_string).await;
+    let getter = calculator::CalculatorClient::new(&connection_string)
+        .await
+        .unwrap();
     match getter.get_counter().await {
         Ok(value) => println!("INSTANCE GET: counter: {value}"),
         Err(e) => println!("INSTANCE GET: failed: {e:?}"),

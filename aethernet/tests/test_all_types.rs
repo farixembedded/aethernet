@@ -170,7 +170,9 @@ async fn ipc<'a>() -> TestIpcContext<'a> {
 
     let server_guard =
         TypeTestInterfaceRpcServer::spawn_handler(&valkey_con_str(), RpcHandler {}.into()).await;
-    let client = TypeTestInterfaceClient::new(&valkey_con_str()).await;
+    let client = TypeTestInterfaceClient::new(&valkey_con_str())
+        .await
+        .unwrap();
     let publish = TypeTestInterfacePublisher::new(&valkey_con_str()).await;
 
     TestIpcContext {

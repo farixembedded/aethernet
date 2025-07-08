@@ -15,10 +15,13 @@ Initial public release.
 * The types available to Aethernet IPC are now documented and checked at build time. New functions
   that need error handing:
   * TBD
-* Tokio spawn helper for RPC and Pubsub servers are now `async`
+* Tokio spawn helper for RPC and Pubsub servers are now `async` and return a Result
+* Several functions have the return now wrapped in a Result<>
+  * *Client::new()
 
 **Changes**
-* Tokio spawn helps now fully initialize before returning.
+* Tokio spawn helpers for handlers (RPC and Pubsub subscriptions) now fully initialize before
+  returning.
 
 ## [v0.1.0] - 2025-06-12
 
