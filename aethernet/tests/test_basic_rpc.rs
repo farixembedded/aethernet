@@ -2,6 +2,7 @@
 
 mod common;
 
+use aethernet::AethernetError;
 use common::valkey_con_str;
 use redis::AsyncTypedCommands;
 
@@ -37,3 +38,25 @@ async fn test() {
     assert_eq!(12, client.add(5, 7).await.unwrap());
     assert_eq!(3, client.add(7, -4).await.unwrap());
 }
+
+#[tokio::test]
+async fn test_malformed_connection_string_should_fail() {
+    assert!(matches!(
+        TestInterfaceClient::new("foobar").await,
+        Err(AethernetError::RedisError(_))
+    ));
+}
+
+#[tokio::test]
+async fn test_no_connection_fails_rpc_calls_lazily() {
+    let client = TestInterfaceClient::new("redis://127.0.0.1:9999")
+        .await
+        .unwrap();
+
+    assert!(matches!(
+        client.add(3, 4).await,
+        Err(AethernetError::RedisError(_))
+    ));
+}
+
+// TODO: reconnect behavior works
