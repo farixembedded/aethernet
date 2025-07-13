@@ -1,43 +1,44 @@
 // Copyright 2025 Farix Embedded LLC, studio 3e8 Inc.
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 
+#[allow(unused_imports)]
+use log::{debug, error, info, trace, warn};
+
 use crate::keys::AethernetKeys;
 use crate::types::{AethernetPubsub, AethernetRpcRepEnvelope, AethernetRpcReqEnvelope};
 use crate::{AethernetError, AethernetRpc};
 use redis::AsyncTypedCommands;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 /// Can publish Pubsub updates as well as receive and reply to RPC ReqReps.
 #[derive(Clone)]
 pub struct AethernetServer {
-    valkey: redis::aio::MultiplexedConnection,
+    valkey_client: redis::Client,
+    valkey_connection: Arc<Mutex<Option<redis::aio::MultiplexedConnection>>>,
     keys: AethernetKeys,
 }
 
 impl AethernetServer {
-    pub async fn new(connection_string: &str, service_name: &str, interface_name: &str) -> Self {
-        let valkey = {
-            let client = redis::Client::open(connection_string).unwrap();
-            client.get_multiplexed_tokio_connection().await.unwrap()
-        };
+    pub async fn new(
+        connection_string: &str,
+        service_name: &str,
+        interface_name: &str,
+    ) -> Result<Self, AethernetError> {
+        let valkey_client = redis::Client::open(connection_string)?;
 
-        let mut server = Self {
-            valkey,
+        Ok(Self {
+            valkey_client,
+            valkey_connection: Arc::new(Mutex::new(None)),
             keys: AethernetKeys::new(service_name, interface_name),
-        };
-
-        // clear out the full "[service_name]:*" key space to start fresh
-        // at least clear the RPC request queue
-        let key_rpc_request = server.keys.rpc_request();
-        server.valkey.del(key_rpc_request).await.unwrap();
-
-        server
+        })
     }
 
     // TODO: pass through deserialization and redis errors
     pub async fn wait_for_and_deserialize_next_request(
         &self,
     ) -> Result<AethernetRpcReqEnvelope<serde_json::Value>, AethernetError> {
-        let mut valkey = self.valkey.clone();
+        let mut valkey = self.ensure_and_get_valkey_connetion().await?;
         let key_rpc_request = self.keys.rpc_request();
 
         let serialized_req_envelope = &valkey
@@ -53,24 +54,25 @@ impl AethernetServer {
         &self,
         req_id: &str,
         rep_envelope: &AethernetRpcRepEnvelope<T::RepType>,
-    ) {
-        let mut valkey = self.valkey.clone();
-        let serialized_rep_evelope = serde_json::to_string(rep_envelope).unwrap();
+    ) -> Result<(), AethernetError> {
+        let mut valkey = self.ensure_and_get_valkey_connetion().await?;
+        let serialized_rep_evelope = serde_json::to_string(rep_envelope)?;
 
         let key_rpc_response = self.keys.rpc_response(req_id);
         valkey
             .lpush(&key_rpc_response, serialized_rep_evelope)
-            .await
-            .unwrap();
+            .await?;
         // client has 60 seconds to get the response, after that its deleted to prevent leaks
-        valkey.expire(&key_rpc_response, 60).await.unwrap();
+        valkey.expire(&key_rpc_response, 60).await?;
+
+        Ok(())
     }
 
     pub async fn publish<'a, T: AethernetPubsub<'a>>(
         &self,
         msg: &T::MsgRefType,
     ) -> Result<(), AethernetError> {
-        let mut valkey = self.valkey.clone();
+        let mut valkey = self.ensure_and_get_valkey_connetion().await?;
         let key_pubsub = self.keys.pubsub(T::MESSAGE_NAME);
         let key_pubsub_latest = self.keys.pubsub_latest(T::MESSAGE_NAME);
 
@@ -79,5 +81,39 @@ impl AethernetServer {
         valkey.set(key_pubsub_latest, &message).await?;
         valkey.publish(key_pubsub, &message).await?;
         Ok(())
+    }
+
+    async fn ensure_and_get_valkey_connetion(
+        &self,
+    ) -> Result<redis::aio::MultiplexedConnection, AethernetError> {
+        let first_connection;
+        // check connection wth a ping
+        let mut valkey_connection = self.valkey_connection.lock().await;
+        if let Some(valkey_connection) = valkey_connection.as_mut() {
+            first_connection = false;
+            if valkey_connection.ping().await.is_ok() {
+                return Ok(valkey_connection.clone());
+            }
+        } else {
+            first_connection = true;
+        }
+
+        // try to reconnect once
+        let mut new_valkey_connection = self
+            .valkey_client
+            .get_multiplexed_tokio_connection()
+            .await?;
+        *valkey_connection = Some(new_valkey_connection.clone());
+
+        if first_connection {
+            // clear out the full "[service_name]:*" key space to start fresh at least clear the RPC
+            // request queue
+            let key_rpc_request = self.keys.rpc_request();
+            if let Err(err) = new_valkey_connection.del(&key_rpc_request).await {
+                warn!("Failed to flush RPC queue on first connection: {key_rpc_request}, {err}");
+            }
+        }
+
+        Ok(new_valkey_connection)
     }
 }

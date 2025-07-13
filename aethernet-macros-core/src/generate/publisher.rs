@@ -43,10 +43,10 @@ pub fn generate_publisher_code(pubsub_info: &IpcInfo) -> proc_macro2::TokenStrea
         }
 
         impl #pubsub_publisher_struct {
-            pub async fn new(connection_string: &str) -> Self {
-                Self {
-                    server: ::aethernet::AethernetServer::new(connection_string, DEFAULT_SERVICE_NAME, INTERFANCE_NAME).await,
-                }
+            pub async fn new(connection_string: &str) -> Result<Self, ::aethernet::AethernetError> {
+                Ok(Self {
+                    server: ::aethernet::AethernetServer::new(connection_string, DEFAULT_SERVICE_NAME, INTERFANCE_NAME).await?,
+                })
             }
 
             #(#pubsub_publishers)*

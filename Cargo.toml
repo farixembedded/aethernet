@@ -3,7 +3,7 @@ resolver = "3"
 members = [
     "aethernet",
     "aethernet-macros"
-, "aethernet-macros-core"]
+, "aethernet-macros-core", "test-expansion"]
 
 [workspace.package]
 license = "MIT OR Apache-2.0"

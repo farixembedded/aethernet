@@ -1,0 +1,11 @@
+[package]
+name = "test-expansion"
+license.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+aethernet = { path = "../aethernet" }
+serde = { workspace = true }
+tokio = { workspace =  true }

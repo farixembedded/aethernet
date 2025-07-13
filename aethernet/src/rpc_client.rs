@@ -36,7 +36,6 @@ impl AethernetRpcClient {
             },
         };
 
-        // TODO: don't unwrap, return the error
         let valkey_client = redis::Client::open(connection_string)?;
         let keys = AethernetKeys::new(service_name, interface_name);
 

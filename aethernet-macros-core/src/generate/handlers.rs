@@ -161,24 +161,24 @@ fn generate_ipc_handler(ipc_info: &IpcInfo) -> proc_macro2::TokenStream {
         }
 
         impl<T: #rpc_handlers_trait  + 'static> #rpc_handler_struct<T> {
-            pub async fn new(connection_string: &str, handlers: Box<T>) -> Self {
+            pub async fn new(connection_string: &str, handlers: Box<T>) -> Result<Self, ::aethernet::AethernetError> {
                 // for now assume the interface maps to only one service
-                let mut agent = ::aethernet::#ipc_server_or_client::new(connection_string, DEFAULT_SERVICE_NAME, INTERFANCE_NAME).await;
+                let agent = ::aethernet::#ipc_server_or_client::new(connection_string, DEFAULT_SERVICE_NAME, INTERFANCE_NAME).await?;
 
                 #(#pubsub_subscribe)*
 
-                Self {
+                Ok(Self {
                     handlers,
                     agent,
-                }
+                })
             }
 
             #[must_use = "The task guard must be assigned to prevent the task from being aborted immediately"]
-            pub async fn spawn_handler(connection_string: &str, handlers: Box<T>) -> ::aethernet::AethernetHandlerGuard {
+            pub async fn spawn_handler(connection_string: &str, handlers: Box<T>) -> Result<::aethernet::AethernetHandlerGuard, ::aethernet::AethernetError> {
                 let connection_string = connection_string.to_string();
                 // construct the handler outside the tokio task so it is fully ready when this function returns
                 // TODO: error handling
-                let handler_instance = Self::new(&connection_string, handlers).await;
+                let handler_instance = Self::new(&connection_string, handlers).await?;
 
                 let join_handle = ::tokio::spawn(async move {
                     let mut handler_instance = handler_instance;
@@ -188,9 +188,9 @@ fn generate_ipc_handler(ipc_info: &IpcInfo) -> proc_macro2::TokenStream {
                     }
                 });
 
-                ::aethernet::AethernetHandlerGuard {
+                Ok(::aethernet::AethernetHandlerGuard {
                     join_handle,
-                }
+                })
             }
 
             #handle_one_incoming_fn
